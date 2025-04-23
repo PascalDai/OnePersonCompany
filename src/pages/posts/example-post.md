@@ -2,12 +2,12 @@
 layout: ../../layouts/PostLayout.astro
 title: 使用Astro构建现代化博客网站
 description: 本文探讨了Astro框架的特点以及如何用它构建高性能的博客网站
-pubDate: 2023-12-01
+pubDate: 2025-04-23
 author: 博主
 image: 
   url: /placeholder-hero.jpg
   alt: Astro框架图片
-tags: ["astro", "blogging", "frontend"]
+tags: ["astro", "blogging", "frontend","project"]
 ---
 
 # 使用Astro构建现代化博客网站
