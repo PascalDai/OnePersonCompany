@@ -184,12 +184,12 @@ export default function Dashboard() {
               
               {/* 右侧：选中日期的发布详情 */}
               <div className="md:col-span-2">
-                <h3 className="text-lg font-medium mb-4">
+                <h3 className="text-lg font-medium mb-2">
                   {selectedDate ? `${new Date(selectedDate).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}发布内容` : '选择日期查看详情'}
                 </h3>
                 
                 {publishDetails && (
-                  <div className="space-y-4">
+                  <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                     {publishDetails.articles.length > 0 ? (
                       publishDetails.articles.map(article => (
                         <Card key={article.id} className="overflow-hidden">
@@ -289,14 +289,14 @@ function PublishingCalendar({
   const sortedMonths = Object.keys(monthsData).sort().reverse().slice(0, 1);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {sortedMonths.map(month => (
         <div key={month}>
-          <h4 className="text-sm font-medium mb-4">
+          <h4 className="text-sm font-medium mb-2">
             {new Date(month + '-01').toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' })}
           </h4>
           <div className="grid grid-cols-7 gap-2">
-            {['日', '一', '二', '三', '四', '五', '六'].map(day => (
+            {['一', '二', '三', '四', '五', '六', '日'].map(day => (
               <div key={day} className="text-xs text-center font-medium text-muted-foreground">
                 {day}
               </div>
@@ -326,7 +326,8 @@ function CalendarMonth({
   onSelectDate: (date: string) => void;
 }) {
   const firstDay = new Date(month + '-01');
-  const firstDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  // 调整从周一开始（0 = 周一，6 = 周日）
+  const firstDayOfWeek = (firstDay.getDay() + 6) % 7; // 将周日的0转换为6，其他天-1
   
   // 计算该月的天数
   const lastDay = new Date(firstDay.getFullYear(), firstDay.getMonth() + 1, 0);
@@ -337,7 +338,7 @@ function CalendarMonth({
   
   // 添加上个月的空白日期
   for (let i = 0; i < firstDayOfWeek; i++) {
-    calendarCells.push(<div key={`empty-${i}`} className="h-10" />);
+    calendarCells.push(<div key={`empty-${i}`} className="h-14" />);
   }
   
   // 添加当月日期
@@ -360,7 +361,7 @@ function CalendarMonth({
     calendarCells.push(
       <div 
         key={date} 
-        className={`h-10 rounded-md flex items-center justify-center text-xs font-medium ${bgColor} ${selectedStyle} ${count > 0 ? 'text-primary-foreground cursor-pointer' : 'text-muted-foreground'} transition-all`}
+        className={`h-14 rounded-md flex items-center justify-center text-xs font-medium ${bgColor} ${selectedStyle} ${count > 0 ? 'text-primary-foreground cursor-pointer' : 'text-muted-foreground'} transition-all`}
         onClick={() => count > 0 && onSelectDate(date)}
         role={count > 0 ? "button" : undefined}
         tabIndex={count > 0 ? 0 : undefined}
