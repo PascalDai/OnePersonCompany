@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button } from './ui/button';
+import { ThemeToggle } from './ui/theme-toggle';
 
 export default function Header() {
   return (
@@ -24,7 +25,8 @@ export default function Header() {
             关于
           </a>
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
           <Button variant="outline" size="sm">
             订阅
           </Button>

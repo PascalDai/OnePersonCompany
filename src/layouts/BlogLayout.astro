@@ -13,6 +13,27 @@ import Footer from "../components/Footer";
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
     <title>我的博客</title>
+    <!-- 初始化主题脚本，防止闪烁 -->
+    <script is:inline>
+      const theme = (() => {
+        if (
+          typeof localStorage !== "undefined" &&
+          localStorage.getItem("theme")
+        ) {
+          return localStorage.getItem("theme");
+        }
+        if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+          return "dark";
+        }
+        return "light";
+      })();
+
+      if (theme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    </script>
   </head>
   <body class="overflow-hidden">
     <Header client:load />
@@ -63,4 +84,3 @@ import Footer from "../components/Footer";
     </style>
   </body>
 </html>
-
