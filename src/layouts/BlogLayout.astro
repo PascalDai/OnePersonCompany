@@ -1,0 +1,66 @@
+---
+import "../styles/global.css";
+import Header from "../components/Header";
+import Footer from "../components/Footer";
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="个人博客网站，记录项目和任务进展" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <title>我的博客</title>
+  </head>
+  <body class="overflow-hidden">
+    <Header client:load />
+    <main class="scroll-container h-screen">
+      <slot />
+    </main>
+    <Footer />
+
+    <script>
+      import { setupScrollAnimation } from "../lib/scroll-animation";
+
+      // 当DOM加载完成后执行
+      document.addEventListener("DOMContentLoaded", () => {
+        setupScrollAnimation();
+      });
+    </script>
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      .scroll-container {
+        scroll-snap-type: y mandatory;
+        overflow-y: auto;
+        height: 100vh;
+        scroll-behavior: smooth;
+      }
+
+      /* 为部分提供滚动捕捉点 */
+      :global(section) {
+        scroll-snap-align: start;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      /* 让Dashboard和Footer一起出现 */
+      :global(section#dashboard) {
+        padding-bottom: 0;
+        min-height: calc(100vh - 300px);
+        display: flex;
+        flex-direction: column;
+      }
+    </style>
+  </body>
+</html>
+

@@ -1,0 +1,120 @@
+---
+import BlogLayout from "./BlogLayout.astro";
+
+const { frontmatter } = Astro.props;
+const { title, description, pubDate, author, image, tags } = frontmatter;
+
+// 格式化日期
+function formatDate(date: string | Date): string {
+  return new Date(date).toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+}
+---
+
+<BlogLayout>
+  <section class="blog-post pt-24 min-h-screen">
+    <div class="container mx-auto px-4 py-10">
+      <article class="prose prose-lg mx-auto max-w-3xl">
+        <header class="mb-8">
+          <div class="flex items-center text-sm text-muted-foreground mb-2">
+            <time datetime={pubDate}>{formatDate(pubDate)}</time>
+            {author && (
+              <span class="mx-2">•</span>
+              <span>{author}</span>
+            )}
+          </div>
+          <h1 class="text-4xl font-bold mb-4">{title}</h1>
+          {description && <p class="text-xl text-muted-foreground">{description}</p>}
+          
+          {tags && tags.length > 0 && (
+            <div class="flex flex-wrap gap-2 mt-4">
+              {tags.map((tag: string) => (
+                <span class="bg-muted px-2 py-1 text-xs rounded-md">
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </header>
+        
+        {image && image.url && (
+          <div class="mb-8">
+            <img
+              src={image.url}
+              alt={image.alt || title}
+              class="w-full h-auto rounded-lg"
+            />
+          </div>
+        )}
+        
+        <div class="blog-content">
+          <slot />
+        </div>
+      </article>
+    </div>
+  </section>
+</BlogLayout>
+
+<style>
+  .blog-content :global(h2) {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+  
+  .blog-content :global(h3) {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+  
+  .blog-content :global(p) {
+    margin-bottom: 1.25rem;
+    line-height: 1.7;
+  }
+  
+  .blog-content :global(ul), .blog-content :global(ol) {
+    margin-bottom: 1.25rem;
+    padding-left: 1.5rem;
+  }
+  
+  .blog-content :global(li) {
+    margin-bottom: 0.5rem;
+  }
+  
+  .blog-content :global(pre) {
+    background-color: hsl(var(--muted));
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+  }
+  
+  .blog-content :global(code) {
+    font-family: monospace;
+    font-size: 0.9em;
+  }
+  
+  .blog-content :global(blockquote) {
+    border-left: 4px solid hsl(var(--primary));
+    padding-left: 1rem;
+    font-style: italic;
+    margin: 1.5rem 0;
+  }
+  
+  .blog-content :global(hr) {
+    margin: 2rem 0;
+    border: 0;
+    border-top: 1px solid hsl(var(--border));
+  }
+  
+  .blog-content :global(a) {
+    color: hsl(var(--primary));
+    text-decoration: underline;
+  }
+</style> 
