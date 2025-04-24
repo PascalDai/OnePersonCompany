@@ -12,7 +12,7 @@ import Footer from "../components/Footer";
     <meta name="description" content="个人博客网站，记录项目和任务进展" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
-    <title>我的博客</title>
+    <title>One Person Company</title>
     <!-- 初始化主题脚本，防止闪烁 -->
     <script is:inline>
       const theme = (() => {
@@ -35,9 +35,9 @@ import Footer from "../components/Footer";
       }
     </script>
   </head>
-  <body class="overflow-hidden">
+  <body>
     <Header client:load />
-    <main class="scroll-container h-screen">
+    <main class="scroll-container">
       <slot />
     </main>
     <Footer />
@@ -57,29 +57,34 @@ import Footer from "../components/Footer";
         margin: 0;
         padding: 0;
         height: 100%;
-        overflow: hidden;
       }
 
       .scroll-container {
-        scroll-snap-type: y mandatory;
+        scroll-snap-type: y proximity; /* 改为proximity，让滚动更自然 */
         overflow-y: auto;
-        height: 100vh;
+        min-height: calc(100vh - 80px); /* 减去header的高度 */
         scroll-behavior: smooth;
       }
 
       /* 为部分提供滚动捕捉点 */
       :global(section) {
         scroll-snap-align: start;
-        height: 100vh;
-        overflow: hidden;
+        min-height: 100vh; /* 改为min-height允许内容自然延伸 */
       }
 
       /* 让Dashboard和Footer一起出现 */
       :global(section#dashboard) {
-        padding-bottom: 0;
+        padding-bottom: 4rem;
         min-height: calc(100vh - 300px);
         display: flex;
         flex-direction: column;
+      }
+
+      /* 确保Footer可见 */
+      :global(footer) {
+        scroll-snap-align: end;
+        position: relative;
+        z-index: 10;
       }
     </style>
   </body>
