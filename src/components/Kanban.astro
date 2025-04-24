@@ -198,14 +198,50 @@ function getBlogUrl(slug: string) {
         <button
           class="px-4 py-2 rounded-md text-sm font-medium transition-colors js-projects-tab active-tab"
           data-tab="projects"
+          aria-pressed="true"
         >
-          项目
+          <span class="flex items-center">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4 mr-1"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M20 7h-3a2 2 0 0 1-2-2V2"></path>
+              <path
+                d="M9 18a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7l4 4v10a2 2 0 0 1-2 2H9Z"
+              ></path>
+            </svg>
+            项目
+          </span>
         </button>
         <button
           class="px-4 py-2 rounded-md text-sm font-medium transition-colors js-tasks-tab"
           data-tab="tasks"
+          aria-pressed="false"
         >
-          任务
+          <span class="flex items-center">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4 mr-1"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            任务
+          </span>
         </button>
       </div>
     </div>
@@ -481,18 +517,32 @@ function getBlogUrl(slug: string) {
     const projectsView = document.querySelector(".projects-view");
     const tasksView = document.querySelector(".tasks-view");
 
+    // 添加当前状态展示的函数
+    function updateTabState(
+      activeTab: Element | null,
+      inactiveTab: Element | null
+    ) {
+      if (activeTab && inactiveTab) {
+        // 设置ARIA属性以增强可访问性
+        activeTab.setAttribute("aria-pressed", "true");
+        inactiveTab.setAttribute("aria-pressed", "false");
+
+        // 添加激活样式
+        activeTab.classList.add("active-tab", "font-bold", "text-primary");
+        inactiveTab.classList.remove("active-tab", "font-bold", "text-primary");
+      }
+    }
+
     projectsTab?.addEventListener("click", () => {
-      projectsTab.classList.add("active-tab");
-      tasksTab?.classList.remove("active-tab");
       projectsView?.classList.remove("hidden");
       tasksView?.classList.add("hidden");
+      updateTabState(projectsTab, tasksTab);
     });
 
     tasksTab?.addEventListener("click", () => {
-      tasksTab.classList.add("active-tab");
-      projectsTab?.classList.remove("active-tab");
       tasksView?.classList.remove("hidden");
       projectsView?.classList.add("hidden");
+      updateTabState(tasksTab, projectsTab);
     });
   });
 </script>
@@ -501,6 +551,18 @@ function getBlogUrl(slug: string) {
   .active-tab {
     background-color: var(--background);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    position: relative;
+  }
+
+  .active-tab::after {
+    content: "";
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: currentColor;
+    border-radius: 1px;
   }
 
   .hidden {
