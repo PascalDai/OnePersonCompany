@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "./BaseLayout.astro";
+import { siteConfig } from "../config/site";
 
 // 布局属性
 interface Props {
@@ -8,7 +9,7 @@ interface Props {
 }
 
 const {
-  title = "博客 | One Person Company",
+  title = `博客 | ${siteConfig.name}`,
   description = "个人博客文章内容",
 } = Astro.props;
 ---

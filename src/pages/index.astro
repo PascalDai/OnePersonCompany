@@ -4,13 +4,14 @@ import ScrollLayout from "../layouts/ScrollLayout.astro";
 import Kanban from "../components/Kanban.astro";
 // import Dashboard from "../components/Dashboard";
 import Dashboard from "../components/Dashboard.astro";
+import { siteConfig } from "../config/site";
 // Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
 // Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
 ---
 
 <ScrollLayout
-  title="首页 | One Person Company"
-  description="个人项目和任务看板"
+  title={`首页 | ${siteConfig.name}`}
+  description={siteConfig.description}
 >
   <section id="kanban">
     <Kanban />

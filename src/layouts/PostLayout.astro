@@ -1,5 +1,6 @@
 ---
 import BlogLayout from "./BlogLayout.astro";
+import { siteConfig } from "../config/site";
 
 const { frontmatter } = Astro.props;
 const { title, description, pubDate, author, image, tags } = frontmatter;
@@ -14,7 +15,7 @@ function formatDate(date: string | Date): string {
 }
 
 // 设置页面标题和描述
-const pageTitle = `${title} | One Person Company`;
+const pageTitle = `${title} | ${siteConfig.name}`;
 ---
 
 <BlogLayout title={pageTitle} description={description}>
