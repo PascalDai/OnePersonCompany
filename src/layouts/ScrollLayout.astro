@@ -1,1 +1,48 @@
- 
+---
+import BaseLayout from "./BaseLayout.astro";
+
+// 布局属性
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<BaseLayout title={title} description={description} fixedFooter={true}>
+  <div class="scroll-container">
+    <slot />
+  </div>
+</BaseLayout>
+
+<style>
+  .scroll-container {
+    height: 100vh;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    scroll-snap-type: y mandatory;
+    padding-bottom: 80px; /* 为固定的Footer留出空间 */
+  }
+
+  /* 为部分提供滚动捕捉点 */
+  :global(.scroll-container > section) {
+    scroll-snap-align: start;
+    height: 100vh;
+    position: relative;
+  }
+
+  /* 确保最后一个section留出足够空间 */
+  :global(.scroll-container > section:last-of-type) {
+    margin-bottom: 60px;
+  }
+</style>
+
+<script>
+  import { setupScrollAnimation } from "../lib/scroll-animation";
+
+  // 当DOM加载完成后执行
+  document.addEventListener("DOMContentLoaded", () => {
+    setupScrollAnimation();
+  });
+</script>

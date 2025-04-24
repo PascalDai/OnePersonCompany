@@ -1,1 +1,91 @@
- 
+---
+import "../styles/global.css";
+import Header from "../components/Header";
+import Footer from "../components/Footer";
+
+// 布局属性
+interface Props {
+  title?: string;
+  description?: string;
+  fixedFooter?: boolean;
+}
+
+const {
+  title = "One Person Company",
+  description = "个人博客网站，记录项目和任务进展",
+  fixedFooter = false,
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    <!-- 初始化主题脚本，防止闪烁 -->
+    <script is:inline>
+      const theme = (() => {
+        if (
+          typeof localStorage !== "undefined" &&
+          localStorage.getItem("theme")
+        ) {
+          return localStorage.getItem("theme");
+        }
+        if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+          return "dark";
+        }
+        return "light";
+      })();
+
+      if (theme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    </script>
+  </head>
+  <body>
+    <Header client:load />
+    <main class="main-content">
+      <slot />
+    </main>
+    {
+      fixedFooter ? (
+        <div class="fixed-footer">
+          <Footer />
+        </div>
+      ) : (
+        <Footer />
+      )
+    }
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
+
+      .main-content {
+        min-height: calc(100vh - 140px); /* 减去Header和Footer的高度 */
+        overflow-y: auto;
+      }
+
+      /* 固定底部Footer */
+      .fixed-footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        z-index: 100;
+        background-color: var(--background);
+        border-top: 1px solid var(--border);
+      }
+    </style>
+  </body>
+</html>
