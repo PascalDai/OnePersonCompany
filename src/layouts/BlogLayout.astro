@@ -35,12 +35,14 @@ import Footer from "../components/Footer";
       }
     </script>
   </head>
-  <body>
+  <body class="overflow-hidden">
     <Header client:load />
-    <main class="scroll-container">
+    <main class="scroll-container h-screen">
       <slot />
     </main>
-    <Footer />
+    <div class="fixed-footer">
+      <Footer />
+    </div>
 
     <script>
       import { setupScrollAnimation } from "../lib/scroll-animation";
@@ -57,34 +59,38 @@ import Footer from "../components/Footer";
         margin: 0;
         padding: 0;
         height: 100%;
+        overflow: hidden;
       }
 
       .scroll-container {
-        scroll-snap-type: y proximity; /* 改为proximity，让滚动更自然 */
+        scroll-snap-type: y mandatory;
         overflow-y: auto;
-        min-height: calc(100vh - 80px); /* 减去header的高度 */
+        height: calc(100vh - 80px); /* 减去Header和Footer的高度 */
         scroll-behavior: smooth;
+        padding-bottom: 80px; /* 为固定的Footer留出空间 */
       }
 
       /* 为部分提供滚动捕捉点 */
       :global(section) {
         scroll-snap-align: start;
-        min-height: 100vh; /* 改为min-height允许内容自然延伸 */
-      }
-
-      /* 让Dashboard和Footer一起出现 */
-      :global(section#dashboard) {
-        padding-bottom: 4rem;
-        min-height: calc(100vh - 300px);
-        display: flex;
-        flex-direction: column;
-      }
-
-      /* 确保Footer可见 */
-      :global(footer) {
-        scroll-snap-align: end;
+        height: 100vh;
         position: relative;
-        z-index: 10;
+      }
+
+      /* 固定底部Footer */
+      .fixed-footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        z-index: 100;
+        background-color: var(--background);
+        border-top: 1px solid var(--border);
+      }
+
+      /* 确保最后一个section留出足够空间 */
+      :global(section:last-of-type) {
+        margin-bottom: 60px;
       }
     </style>
   </body>
