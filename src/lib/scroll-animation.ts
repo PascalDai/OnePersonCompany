@@ -1,38 +1,60 @@
-// 使用IntersectionObserver进行滚动监听和切换
+/**
+ * 设置页面滚动动画效果
+ */
 export function setupScrollAnimation() {
-  // 获取DOM元素
-  const sections = document.querySelectorAll('section[id]');
+  const scrollContainer = document.querySelector('.scroll-container') as HTMLElement;
+  if (!scrollContainer) {
+    console.error('滚动容器未找到');
+    return;
+  }
+
+  const footer = document.querySelector('.fixed-footer') as HTMLElement;
+  const sections = document.querySelectorAll('.scroll-container > section') as NodeListOf<HTMLElement>;
   
-  // 配置选项
-  const options = {
-    root: null, // 使用视口作为根
-    rootMargin: '0px',
-    threshold: 0.5 // 当50%的目标元素可见时触发回调
-  };
+  if (sections.length < 2) {
+    // 如果不是多section的页面，不需要设置滚动捕捉
+    return;
+  }
+
+  // 更新Footer的padding
+  if (footer) {
+    const updatePadding = () => {
+      const footerHeight = footer.clientHeight;
+      const lastSection = sections[sections.length - 1];
+      if (lastSection) {
+        lastSection.style.marginBottom = `${footerHeight}px`;
+      }
+    };
+
+    // 初始化时更新一次
+    updatePadding();
+    
+    // 窗口大小改变时重新计算
+    window.addEventListener('resize', updatePadding);
+  }
+
+  // 为滚动添加平滑效果
+  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function(this: HTMLAnchorElement, e) {
+      e.preventDefault();
+      const targetId = this.getAttribute('href');
+      if (targetId && targetId !== '#') {
+        const targetElement = document.querySelector(targetId);
+        if (targetElement) {
+          targetElement.scrollIntoView({
+            behavior: 'smooth'
+          });
+        }
+      }
+    });
+  });
 
   // 记录当前激活的部分
   let activeSection: string | null = null;
   let isScrolling = false;
 
-  // 创建观察者
-  const observer = new IntersectionObserver((entries) => {
-    if (isScrolling) return; // 如果正在滚动，不处理
-
-    entries.forEach(entry => {
-      // 如果元素可见
-      if (entry.isIntersecting) {
-        activeSection = entry.target.id;
-      }
-    });
-  }, options);
-
-  // 观察所有部分
-  sections.forEach(section => {
-    observer.observe(section);
-  });
-
   // 添加滚轮事件处理
-  window.addEventListener('wheel', (event) => {
+  scrollContainer.addEventListener('wheel', (event) => {
     if (isScrolling) return; // 如果正在滚动中，不处理
 
     const delta = event.deltaY;
@@ -44,6 +66,17 @@ export function setupScrollAnimation() {
         currentIndex = index;
       }
     });
+
+    // 如果没有激活的section，根据可见性确定当前section
+    if (currentIndex === -1) {
+      sections.forEach((section, index) => {
+        const rect = section.getBoundingClientRect();
+        if (rect.top <= 100 && rect.bottom >= 100) {
+          currentIndex = index;
+          activeSection = section.id;
+        }
+      });
+    }
 
     if (currentIndex === -1) return;
 
@@ -77,11 +110,18 @@ export function setupScrollAnimation() {
     }
   }, { passive: false }); // passive: false允许我们阻止默认滚动
 
-  // 初始化：滚动到第一个section
-  setTimeout(() => {
-    if (sections.length > 0) {
-      sections[0].scrollIntoView({ behavior: 'auto' });
-      activeSection = sections[0].id;
-    }
-  }, 100);
+  // 添加IntersectionObserver来检测当前可见的section
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && !isScrolling) {
+        activeSection = (entry.target as HTMLElement).id;
+      }
+    });
+  }, {
+    threshold: 0.5
+  });
+
+  sections.forEach(section => {
+    observer.observe(section);
+  });
 } 

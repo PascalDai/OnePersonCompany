@@ -12,10 +12,13 @@ function formatDate(date: string | Date): string {
     day: 'numeric'
   });
 }
+
+// 设置页面标题和描述
+const pageTitle = `${title} | One Person Company`;
 ---
 
-<BlogLayout>
-  <section class="blog-post pt-24 min-h-screen">
+<BlogLayout title={pageTitle} description={description}>
+  <section class="blog-post pt-24 pb-32">
     <div class="container mx-auto px-4 py-10">
       <article class="prose prose-lg mx-auto max-w-3xl">
         <header class="mb-8">
