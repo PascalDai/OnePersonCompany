@@ -1,0 +1,191 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
+import { getCollection, type CollectionEntry } from "astro:content";
+import type { Project, Task } from "@/lib/types";
+
+// 获取博客文章数据
+const blogEntries = await getCollection("blog");
+
+// 创建项目映射
+const projectsMap = new Map<
+  string,
+  Project & { status?: string; completionRate: number }
+>();
+
+// 处理博客文章，提取项目和任务信息
+blogEntries.forEach((entry: CollectionEntry<"blog">) => {
+  const { data, slug } = entry;
+  const cleanSlug = slug.replace(/^\d{4}-\d{2}-\d{2}-/, ""); // 移除日期前缀
+
+  // 提取项目信息
+  if (data.type === "project" && data.projectId) {
+    const projectStatus = data.status || "in-progress"; // 如果没有状态，默认为进行中
+
+    if (!projectsMap.has(data.projectId)) {
+      projectsMap.set(data.projectId, {
+        id: data.projectId,
+        title: data.projectTitle || data.title,
+        description: data.description,
+        status: projectStatus,
+        tasks: [],
+        createdAt: new Date(data.pubDate),
+        updatedAt: new Date(data.pubDate),
+        slug: cleanSlug,
+        completionRate: 0, // 初始化完成率
+      });
+    }
+  }
+
+  // 提取任务信息
+  if (data.type === "task" && data.taskId && data.projectId) {
+    const task: Task = {
+      id: data.taskId,
+      title: data.taskTitle || data.title,
+      description: data.description,
+      status: data.status || "todo",
+      projectId: data.projectId,
+      createdAt: new Date(data.pubDate),
+      updatedAt: new Date(data.pubDate),
+      slug: cleanSlug,
+    };
+
+    // 将任务添加到对应项目
+    if (projectsMap.has(data.projectId)) {
+      const project = projectsMap.get(data.projectId);
+      if (project) {
+        project.tasks.push(task);
+      }
+    } else {
+      // 如果项目不存在，创建一个新项目
+      projectsMap.set(data.projectId, {
+        id: data.projectId,
+        title: data.projectTitle || "未知项目",
+        description: "自动创建的项目",
+        tasks: [task],
+        createdAt: new Date(data.pubDate),
+        updatedAt: new Date(data.pubDate),
+        completionRate: 0,
+      });
+    }
+  }
+});
+
+// 计算每个项目的完成率
+projectsMap.forEach((project) => {
+  if (project.tasks.length > 0) {
+    const completedTasksCount = project.tasks.filter(
+      (task) => task.status === "completed"
+    ).length;
+    project.completionRate = Math.round(
+      (completedTasksCount / project.tasks.length) * 100
+    );
+  }
+});
+
+// 转换为数组并按照要求排序：未完成的项目排在前面，同样状态下按创建时间升序排序
+const projects = Array.from(projectsMap.values()).sort((a, b) => {
+  // 首先按完成状态排序（未完成的排在前面）
+  if ((a.status === "completed") !== (b.status === "completed")) {
+    return a.status === "completed" ? 1 : -1;
+  }
+
+  // 其次按创建时间升序排序（较早创建的排在前面）
+  return a.createdAt.getTime() - b.createdAt.getTime();
+});
+
+// 用于颜色分配的函数
+function getProgressColorClass(rate: number): string {
+  if (rate < 30) return "bg-red-500";
+  if (rate < 70) return "bg-yellow-500";
+  return "bg-green-500";
+}
+---
+
+<BaseLayout title="项目列表 | One Person Company" description="查看所有项目">
+  <section class="py-16 px-4">
+    <div class="container mx-auto">
+      <header class="mb-8">
+        <h1 class="text-3xl font-bold mb-2">所有项目</h1>
+        <p class="text-muted-foreground">
+          共 {projects.length} 个项目，
+          {projects.filter((p) => p.status !== "completed").length} 个进行中
+        </p>
+      </header>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {
+          projects.map((project) => (
+            <Card className="h-full flex flex-col transition-all hover:shadow-lg">
+              <a href={`/blog/${project.slug}`} class="flex-1 flex flex-col">
+                <CardHeader>
+                  <div class="flex justify-between items-start">
+                    <CardTitle className="text-xl mb-2 hover:text-primary transition-colors">
+                      {project.title}
+                    </CardTitle>
+                    <Badge
+                      variant={
+                        project.status === "completed" ? "success" : "secondary"
+                      }
+                    >
+                      {project.status === "completed" ? "已完成" : "进行中"}
+                    </Badge>
+                  </div>
+                  <CardDescription className="line-clamp-2">
+                    {project.description}
+                  </CardDescription>
+                </CardHeader>
+
+                <CardContent className="flex-1">
+                  <div class="space-y-4">
+                    <div class="flex items-center justify-between text-sm">
+                      <span class="text-muted-foreground">任务数量:</span>
+                      <span class="font-medium">{project.tasks.length}个</span>
+                    </div>
+
+                    <div class="space-y-1">
+                      <div class="flex justify-between items-center text-sm">
+                        <span class="text-muted-foreground">完成进度:</span>
+                        <span class="font-medium">
+                          {project.completionRate}%
+                        </span>
+                      </div>
+                      <div class="w-full bg-muted h-2 rounded-full overflow-hidden">
+                        <div
+                          class={`h-full ${getProgressColorClass(project.completionRate)}`}
+                          style={`width: ${project.completionRate}%`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+
+                <CardFooter className="pt-0 pb-4 text-xs text-muted-foreground flex justify-between">
+                  <span>创建于: {project.createdAt.toLocaleDateString()}</span>
+                  <span>更新于: {project.updatedAt.toLocaleDateString()}</span>
+                </CardFooter>
+              </a>
+            </Card>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>

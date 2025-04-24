@@ -5,6 +5,14 @@ import PostLayout from "../../layouts/PostLayout.astro";
 export async function getStaticPaths() {
   const blogEntries = await getCollection("blog");
 
+  // 提取所有项目类型的文章，用于导航
+  const projectEntries = blogEntries
+    .filter((entry: CollectionEntry<"blog">) => entry.data.type === "project")
+    .sort(
+      (a: CollectionEntry<"blog">, b: CollectionEntry<"blog">) =>
+        new Date(a.data.pubDate).getTime() - new Date(b.data.pubDate).getTime()
+    );
+
   // 遍历所有博客条目，为每个条目创建路径
   const paths = blogEntries.map((entry: CollectionEntry<"blog">) => {
     // 获取原始slug
@@ -13,21 +21,121 @@ export async function getStaticPaths() {
     // 移除日期前缀（如果存在）
     const cleanSlug = originalSlug.replace(/^\d{4}-\d{2}-\d{2}-/, "");
 
-    console.log(`原始slug: ${originalSlug}, 处理后: ${cleanSlug}`);
+    // 查找当前文章在项目列表中的位置（如果是项目类型）
+    let prevProject = null;
+    let nextProject = null;
+
+    if (entry.data.type === "project") {
+      const currentIndex = projectEntries.findIndex(
+        (p: CollectionEntry<"blog">) => p.id === entry.id
+      );
+      if (currentIndex > 0) {
+        const prevEntry = projectEntries[currentIndex - 1];
+        prevProject = {
+          title: prevEntry.data.title,
+          slug: prevEntry.slug.replace(/^\d{4}-\d{2}-\d{2}-/, ""),
+        };
+      }
+
+      if (currentIndex < projectEntries.length - 1 && currentIndex !== -1) {
+        const nextEntry = projectEntries[currentIndex + 1];
+        nextProject = {
+          title: nextEntry.data.title,
+          slug: nextEntry.slug.replace(/^\d{4}-\d{2}-\d{2}-/, ""),
+        };
+      }
+    }
 
     return {
       params: { slug: cleanSlug },
-      props: { entry },
+      props: {
+        entry,
+        prevProject,
+        nextProject,
+      },
     };
   });
 
   return paths;
 }
 
-const { entry } = Astro.props as { entry: CollectionEntry<"blog"> };
+const { entry, prevProject, nextProject } = Astro.props as {
+  entry: CollectionEntry<"blog">;
+  prevProject: { title: string; slug: string } | null;
+  nextProject: { title: string; slug: string } | null;
+};
+
 const { Content } = await entry.render();
+const isProject = entry.data.type === "project";
 ---
 
 <PostLayout frontmatter={entry.data}>
   <Content />
+
+  {
+    isProject && (prevProject || nextProject) && (
+      <div class="mt-16 pt-8 border-t border-border">
+        <div class="flex justify-between items-center">
+          {prevProject && (
+            <a
+              href={`/blog/${prevProject.slug}`}
+              class="group flex items-center"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 mr-2 text-muted-foreground group-hover:text-primary transition-colors"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="m15 18-6-6 6-6" />
+              </svg>
+              <div>
+                <div class="text-xs text-muted-foreground mb-1">上一个项目</div>
+                <div class="font-medium group-hover:text-primary transition-colors">
+                  {prevProject.title}
+                </div>
+              </div>
+            </a>
+          )}
+
+          <a
+            href="/projects"
+            class="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+          >
+            所有项目
+          </a>
+
+          {nextProject && (
+            <a
+              href={`/blog/${nextProject.slug}`}
+              class="group flex items-center text-right"
+            >
+              <div>
+                <div class="text-xs text-muted-foreground mb-1">下一个项目</div>
+                <div class="font-medium group-hover:text-primary transition-colors">
+                  {nextProject.title}
+                </div>
+              </div>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 ml-2 text-muted-foreground group-hover:text-primary transition-colors"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            </a>
+          )}
+        </div>
+      </div>
+    )
+  }
 </PostLayout>
