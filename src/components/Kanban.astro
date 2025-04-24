@@ -196,7 +196,7 @@ function getBlogUrl(slug: string) {
       <h2 class="text-3xl font-bold">我的工作记录</h2>
       <div class="flex space-x-2 bg-muted p-1 rounded-lg">
         <button
-          class="px-4 py-2 rounded-md text-sm font-medium transition-colors js-projects-tab active-tab"
+          class="px-4 py-2 rounded-md text-sm font-medium transition-colors js-projects-tab active-tab font-bold text-primary"
           data-tab="projects"
           aria-pressed="true"
         >
@@ -532,6 +532,9 @@ function getBlogUrl(slug: string) {
         inactiveTab.classList.remove("active-tab", "font-bold", "text-primary");
       }
     }
+
+    // 初始化标签状态，确保页面加载时应用正确样式
+    updateTabState(projectsTab, tasksTab);
 
     projectsTab?.addEventListener("click", () => {
       projectsView?.classList.remove("hidden");
