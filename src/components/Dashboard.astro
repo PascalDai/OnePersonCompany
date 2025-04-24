@@ -1,0 +1,618 @@
+---
+// 不再使用mock数据
+// import {
+//   getBlogStats,
+//   getPublishingCalendarData,
+//   mockTasks,
+//   mockProjects,
+// } from "@/lib/mock-data";
+import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
+import { Badge } from "./ui/badge";
+import type { BlogStats, DayPublishData } from "@/lib/types";
+// 引入Astro内容集合API
+import { getCollection, type CollectionEntry } from "astro:content";
+
+// 定义文章类型
+type ArticleType = "project" | "task";
+
+// 文章信息接口
+interface ArticleInfo {
+  id: string;
+  title: string;
+  type: ArticleType;
+  projectId?: string;
+  projectTitle?: string;
+  taskId?: string;
+  taskTitle?: string;
+  text?: string; // 推文内容
+  slug?: string; // 博客文章的slug
+}
+
+interface DayPublishDetail {
+  date: string;
+  articles: ArticleInfo[];
+}
+
+// 获取博客文章数据
+const blogEntries = await getCollection("blog");
+
+// 调试信息
+console.log(`Dashboard: 总共找到 ${blogEntries.length} 篇博客文章`);
+
+// 构建发布日期映射
+const dateArticlesMap = new Map<string, ArticleInfo[]>();
+
+// 处理博客文章，按日期分组
+blogEntries.forEach((entry: CollectionEntry<"blog">) => {
+  const { data, slug, id } = entry;
+  const cleanSlug = slug.replace(/^\d{4}-\d{2}-\d{2}-/, ""); // 移除日期前缀
+  const pubDate = new Date(data.pubDate).toISOString().split("T")[0]; // 使用ISO格式的日期
+
+  // 创建文章信息对象
+  const articleInfo: ArticleInfo = {
+    id: id,
+    title: data.title,
+    type: data.type as ArticleType,
+    projectId: data.projectId,
+    projectTitle: data.projectTitle || data.title,
+    taskId: data.taskId,
+    taskTitle: data.taskTitle || data.title,
+    text: data.description,
+    slug: cleanSlug,
+  };
+
+  // 按发布日期分组
+  if (!dateArticlesMap.has(pubDate)) {
+    dateArticlesMap.set(pubDate, []);
+  }
+  dateArticlesMap.get(pubDate)?.push(articleInfo);
+});
+
+// 生成过去30天的发布日历数据
+const calendarData: DayPublishData[] = [];
+const today = new Date();
+
+for (let i = 0; i < 30; i++) {
+  const date = new Date();
+  date.setDate(today.getDate() - i);
+  const dateStr = date.toISOString().split("T")[0];
+
+  // 查找该日期的文章数量
+  const articles = dateArticlesMap.get(dateStr) || [];
+
+  calendarData.push({
+    date: dateStr,
+    count: articles.length,
+  });
+}
+
+// 统计数据
+// 统计涉及的项目和任务
+const projectIds = new Set<string>();
+const taskIds = new Set<string>();
+const completedTaskIds = new Set<string>();
+
+blogEntries.forEach((entry: CollectionEntry<"blog">) => {
+  const { data } = entry;
+
+  if (data.type === "project" && data.projectId) {
+    projectIds.add(data.projectId);
+  }
+
+  if (data.type === "task" && data.taskId) {
+    taskIds.add(data.taskId);
+    if (data.status === "completed") {
+      completedTaskIds.add(data.taskId);
+    }
+  }
+});
+
+// 计算连续发布天数
+const publishingStreak = calculatePublishingStreak(calendarData);
+
+// 构建博客统计数据
+const stats: BlogStats = {
+  totalProjects: projectIds.size,
+  totalTasks: taskIds.size,
+  completedTasks: completedTaskIds.size,
+  publishingStreak,
+  lastPublished:
+    blogEntries.length > 0 ? new Date(blogEntries[0].data.pubDate) : null,
+};
+
+// 计算连续发布天数的函数
+function calculatePublishingStreak(data: DayPublishData[]): number {
+  // 按日期排序
+  const sortedData = [...data].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  // 过滤出有发布内容的日期
+  const publishDates = sortedData.filter((day) => day.count > 0);
+
+  if (publishDates.length === 0) return 0;
+
+  // 计算连续天数
+  let streak = 1;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let prevDate = new Date(publishDates[0].date);
+  prevDate.setHours(0, 0, 0, 0);
+
+  // 检查最近的发布是否是今天或昨天
+  const dayDiff = Math.floor(
+    (today.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  if (dayDiff > 1) return 0;
+
+  // 计算连续发布天数
+  for (let i = 1; i < publishDates.length; i++) {
+    const currentDate = new Date(publishDates[i].date);
+    currentDate.setHours(0, 0, 0, 0);
+
+    const diffDays = Math.floor(
+      (prevDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (diffDays === 1) {
+      streak++;
+      prevDate = currentDate;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+// 默认选择有发布内容的最近一天
+const dayWithContent = calendarData.find((day) => day.count > 0);
+const initialSelectedDate = dayWithContent ? dayWithContent.date : null;
+
+// 按月份分组
+const groupByMonth = (data: DayPublishData[]) => {
+  const monthsData: { [month: string]: DayPublishData[] } = {};
+
+  data.forEach((day) => {
+    const monthYear = day.date.substring(0, 7); // YYYY-MM
+    if (!monthsData[monthYear]) {
+      monthsData[monthYear] = [];
+    }
+    monthsData[monthYear].push(day);
+  });
+
+  // 排序月份（仅保留最近一个月）
+  const sortedMonths = Object.keys(monthsData).sort().reverse().slice(0, 1);
+
+  return { monthsData, sortedMonths };
+};
+
+const { monthsData, sortedMonths } = groupByMonth(calendarData);
+
+// 生成日历单元格
+const generateCalendarCells = (
+  month: string,
+  days: DayPublishData[],
+  selectedDate: string | null
+) => {
+  const firstDay = new Date(month + "-01");
+  // 调整从周一开始（0 = 周一，6 = 周日）
+  const firstDayOfWeek = (firstDay.getDay() + 6) % 7; // 将周日的0转换为6，其他天-1
+
+  // 计算该月的天数
+  const lastDay = new Date(firstDay.getFullYear(), firstDay.getMonth() + 1, 0);
+  const daysInMonth = lastDay.getDate();
+
+  // 创建日历网格
+  const emptyDays = Array(firstDayOfWeek).fill(null);
+  const monthDays = Array.from({ length: daysInMonth }, (_, i) => {
+    const day = i + 1;
+    const date = `${month}-${day.toString().padStart(2, "0")}`;
+    const dayData = days.find((d) => d.date === date);
+    const count = dayData ? dayData.count : 0;
+    const isSelected = date === selectedDate;
+
+    let bgColor = "bg-muted/30";
+    if (count === 1) bgColor = "bg-primary/30";
+    if (count === 2) bgColor = "bg-primary/60";
+    if (count >= 3) bgColor = "bg-primary";
+
+    // 选中状态样式
+    const selectedStyle = isSelected ? "ring-2 ring-primary ring-offset-2" : "";
+
+    return {
+      day,
+      date,
+      count,
+      bgColor,
+      selectedStyle,
+      isInteractive: count > 0,
+    };
+  });
+
+  return { emptyDays, monthDays };
+};
+
+// 获取博客链接地址的辅助函数
+function getBlogUrl(slug: string) {
+  return `/blog/${slug}`;
+}
+
+// 准备传递给客户端的数据
+const clientCalendarData = calendarData;
+const clientMonthsData = monthsData;
+const clientSortedMonths = sortedMonths;
+const clientDateArticlesMap = Object.fromEntries(dateArticlesMap);
+
+// 生成SVG图标
+const icons = {
+  project: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 7h-3a2 2 0 0 1-2-2V2" />
+    <path d="M9 18a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7l4 4v10a2 2 0 0 1-2 2H9Z" />
+  </svg>`,
+  task: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+  </svg>`,
+  completed: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <polyline points="22 4 12 14.01 9 11.01" />
+  </svg>`,
+  streak: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973" />
+    <path d="m13 12-3 5h5l-3 5" />
+  </svg>`,
+};
+---
+
+<section id="dashboard" class="min-h-screen pt-16 pb-24">
+  <div class="container mx-auto px-4">
+    <h2 class="text-3xl font-bold mb-8">博客统计</h2>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <!-- 统计卡片 -->
+      <Card>
+        <CardContent className="p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-muted-foreground mb-1">
+                总项目数
+              </p>
+              <h3 class="text-3xl font-bold">{stats.totalProjects}</h3>
+              <p class="text-xs text-muted-foreground mt-1">创建的项目总数</p>
+            </div>
+            <div
+              class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary"
+              set:html={icons.project}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-muted-foreground mb-1">
+                总任务数
+              </p>
+              <h3 class="text-3xl font-bold">{stats.totalTasks}</h3>
+              <p class="text-xs text-muted-foreground mt-1">创建的任务总数</p>
+            </div>
+            <div
+              class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary"
+              set:html={icons.task}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-muted-foreground mb-1">
+                已完成任务
+              </p>
+              <h3 class="text-3xl font-bold">{stats.completedTasks}</h3>
+              <p class="text-xs text-muted-foreground mt-1">
+                完成率 {
+                  Math.round((stats.completedTasks / stats.totalTasks) * 100) ||
+                    0
+                }%
+              </p>
+            </div>
+            <div
+              class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary"
+              set:html={icons.completed}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-muted-foreground mb-1">
+                连续发布
+              </p>
+              <h3 class="text-3xl font-bold">{stats.publishingStreak}</h3>
+              <p class="text-xs text-muted-foreground mt-1">天</p>
+            </div>
+            <div
+              class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary"
+              set:html={icons.streak}
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+
+    <div class="rounded-lg border bg-card shadow-sm">
+      <CardHeader className="px-6">
+        <CardTitle>文章发布记录</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-6">
+          <!-- 左侧：日历 -->
+          <div class="md:col-span-3" id="calendar-container">
+            <div class="space-y-4">
+              {
+                sortedMonths.map((month) => {
+                  const { emptyDays, monthDays } = generateCalendarCells(
+                    month,
+                    monthsData[month],
+                    initialSelectedDate
+                  );
+                  return (
+                    <div>
+                      <h4 class="text-sm font-medium mb-2">
+                        {new Date(month + "-01").toLocaleDateString("zh-CN", {
+                          year: "numeric",
+                          month: "long",
+                        })}
+                      </h4>
+                      <div class="grid grid-cols-7 gap-2">
+                        {["一", "二", "三", "四", "五", "六", "日"].map(
+                          (day) => (
+                            <div class="text-xs text-center font-medium text-muted-foreground">
+                              {day}
+                            </div>
+                          )
+                        )}
+
+                        {/* 空白日期 */}
+                        {emptyDays.map((_, i) => (
+                          <div class="h-14" />
+                        ))}
+
+                        {/* 当月日期 */}
+                        {monthDays.map(
+                          ({
+                            day,
+                            bgColor,
+                            selectedStyle,
+                            isInteractive,
+                            date,
+                            count,
+                          }) => (
+                            <div
+                              class={`calendar-day h-14 rounded-md flex items-center justify-center text-xs font-medium ${bgColor} ${selectedStyle} ${isInteractive ? "text-primary-foreground cursor-pointer" : "text-muted-foreground"} transition-all`}
+                              data-date={date}
+                              data-count={count}
+                              data-selected={
+                                date === initialSelectedDate ? "true" : "false"
+                              }
+                              role={isInteractive ? "button" : undefined}
+                              tabindex={isInteractive ? 0 : undefined}
+                              aria-label={
+                                isInteractive
+                                  ? `${date}，有${count}篇文章`
+                                  : undefined
+                              }
+                            >
+                              {day}
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              }
+            </div>
+          </div>
+
+          <!-- 右侧：选中日期的发布详情 -->
+          <div class="md:col-span-2">
+            <h3 id="selected-date-title" class="text-lg font-medium mb-2">
+              {
+                initialSelectedDate
+                  ? `${new Date(initialSelectedDate).toLocaleDateString("zh-CN", { month: "long", day: "numeric" })}发布内容`
+                  : "选择日期查看详情"
+              }
+            </h3>
+
+            <div id="publish-details-container">
+              <!-- 发布详情内容将通过JS动态更新 -->
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </div>
+  </div>
+</section>
+
+<script
+  is:inline
+  define:vars={{
+    calendarData: clientCalendarData,
+    monthsData: clientMonthsData,
+    sortedMonths: clientSortedMonths,
+    dateArticlesMap: clientDateArticlesMap,
+    initialSelectedDate,
+  }}
+>
+  // 用于跟踪当前选中日期
+  let selectedDate = initialSelectedDate;
+
+  // 调试信息
+  console.log("Dashboard.astro 客户端脚本已加载");
+  console.log("初始选中日期：", selectedDate);
+
+  // 辅助函数：生成文章详情模板
+  function generateArticleTemplate(article) {
+    const articleLink = article.slug ? `/blog/${article.slug}` : null;
+
+    return `
+      <div class="overflow-hidden">
+        <div class="p-4">
+          <h4 class="font-medium mb-2">
+            ${
+              articleLink
+                ? `<a href="${articleLink}" class="hover:text-primary transition-colors">${article.title}</a>`
+                : article.title
+            }
+          </h4>
+          ${
+            article.text
+              ? `<p class="text-sm text-muted-foreground mb-3">${article.text}</p>`
+              : ""
+          }
+          <div class="flex flex-col gap-2 text-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-muted-foreground">类型:</span>
+              <span class="px-2.5 py-0.5 rounded-md ${article.type === "project" ? "bg-secondary text-secondary-foreground" : "bg-primary text-primary-foreground"} text-xs">
+                ${article.type === "project" ? "项目" : "任务"}
+              </span>
+            </div>
+            
+            <div class="flex items-center justify-between">
+              <span class="text-muted-foreground">项目:</span>
+              <span class="px-2.5 py-0.5 rounded-md border bg-primary/10 text-xs">
+                ${article.projectTitle || "未知项目"}
+              </span>
+            </div>
+            
+            ${
+              article.type === "task" && article.taskTitle
+                ? `
+              <div class="flex items-center justify-between">
+                <span class="text-muted-foreground">任务:</span>
+                <span class="font-medium">${article.taskTitle}</span>
+              </div>
+            `
+                : ""
+            }
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // 辅助函数：生成发布详情的HTML
+  function generateDetailsHTML(publishDetails) {
+    if (!publishDetails || !publishDetails.articles) {
+      return '<div class="text-center p-8 bg-muted/30 rounded-lg"><p class="text-muted-foreground">该日期没有发布内容</p></div>';
+    }
+
+    if (publishDetails.articles.length === 0) {
+      return '<div class="text-center p-8 bg-muted/30 rounded-lg"><p class="text-muted-foreground">该日期没有发布内容</p></div>';
+    }
+
+    const articlesHTML = publishDetails.articles
+      .map((article) => {
+        return `
+        <div class="rounded-lg border bg-card shadow-sm overflow-hidden mb-4">
+          ${generateArticleTemplate(article)}
+        </div>
+      `;
+      })
+      .join("");
+
+    return `<div class="space-y-4 max-h-[400px] overflow-y-auto pr-2">${articlesHTML}</div>`;
+  }
+
+  // 更新发布详情
+  function updatePublishDetails(date) {
+    const titleElement = document.getElementById("selected-date-title");
+    const containerElement = document.getElementById(
+      "publish-details-container"
+    );
+
+    if (!date || !titleElement || !containerElement) {
+      if (titleElement) titleElement.textContent = "选择日期查看详情";
+      if (containerElement) containerElement.innerHTML = "";
+      return;
+    }
+
+    // 查找选中日期的文章
+    const articles = dateArticlesMap[date] || [];
+
+    // 准备发布详情数据
+    const publishDetails = {
+      date,
+      articles,
+    };
+
+    // 更新标题
+    const dateObj = new Date(date);
+    titleElement.textContent = `${dateObj.toLocaleDateString("zh-CN", { month: "long", day: "numeric" })}发布内容`;
+
+    // 更新内容
+    containerElement.innerHTML = generateDetailsHTML(publishDetails);
+  }
+
+  // 更新日历中的选中状态
+  function updateCalendarSelection(date) {
+    // 移除所有日期的选中状态
+    document.querySelectorAll(".calendar-day").forEach((day) => {
+      day.classList.remove("ring-2", "ring-primary", "ring-offset-2");
+      day.setAttribute("data-selected", "false");
+    });
+
+    // 添加新选中日期的状态
+    const selectedDayElement = document.querySelector(
+      `.calendar-day[data-date="${date}"]`
+    );
+    if (selectedDayElement) {
+      selectedDayElement.classList.add(
+        "ring-2",
+        "ring-primary",
+        "ring-offset-2"
+      );
+      selectedDayElement.setAttribute("data-selected", "true");
+    }
+  }
+
+  // 初始化
+  document.addEventListener("DOMContentLoaded", () => {
+    // 初始化发布详情
+    if (selectedDate) {
+      updatePublishDetails(selectedDate);
+    }
+
+    // 为所有可点击的日期添加事件监听
+    document
+      .querySelectorAll('.calendar-day[data-count]:not([data-count="0"])')
+      .forEach((dayElement) => {
+        dayElement.addEventListener("click", () => {
+          const date = dayElement.getAttribute("data-date");
+          if (date) {
+            selectedDate = date;
+            updateCalendarSelection(date);
+            updatePublishDetails(date);
+          }
+        });
+
+        // 键盘可访问性
+        dayElement.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            dayElement.click();
+          }
+        });
+      });
+  });
+</script>
