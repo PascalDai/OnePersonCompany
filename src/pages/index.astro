@@ -2,12 +2,17 @@
 import BlogLayout from "../layouts/BlogLayout.astro";
 // import Kanban from "../components/Kanban";
 import Kanban from "../components/Kanban.astro";
-import Dashboard from "../components/Dashboard";
+// import Dashboard from "../components/Dashboard";
+import Dashboard from "../components/Dashboard.astro";
 // Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
 // Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
 ---
 
 <BlogLayout>
-  <Kanban />
-  <Dashboard client:load />
+  <div id="kanban">
+    <Kanban />
+  </div>
+  <div id="dashboard">
+    <Dashboard />
+  </div>
 </BlogLayout>

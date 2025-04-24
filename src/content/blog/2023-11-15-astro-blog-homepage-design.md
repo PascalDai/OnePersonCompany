@@ -2,7 +2,7 @@
 layout: ../../layouts/PostLayout.astro
 title: 设计博客首页：简洁与现代的结合
 description: 本文讨论了如何设计一个简洁现代的博客首页，包含基本的导航和布局
-pubDate: 2023-11-15
+pubDate: 2025-04-15
 author: 博主
 type: task
 projectId: p1
