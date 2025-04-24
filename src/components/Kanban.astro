@@ -66,9 +66,10 @@ blogEntries.forEach((entry: CollectionEntry<"blog">) => {
     console.log(
       `发现项目: ${data.projectTitle || data.title} (ID: ${data.projectId})`
     );
+    const projectSlug = cleanSlug;
+
     if (!projectsMap.has(data.projectId)) {
-      const projectSlug = cleanSlug;
-      console.log(`项目 ${data.projectId} 的slug设置为: ${projectSlug}`);
+      console.log(`创建新项目 ${data.projectId}，设置slug为: ${projectSlug}`);
 
       projectsMap.set(data.projectId, {
         id: data.projectId,
@@ -80,7 +81,16 @@ blogEntries.forEach((entry: CollectionEntry<"blog">) => {
         slug: projectSlug, // 使用清理后的slug
       });
     } else {
-      console.log(`项目 ${data.projectId} 已存在，不更新slug`);
+      // 更新现有项目的 slug（如果需要）
+      const existingProject = projectsMap.get(data.projectId);
+      if (existingProject && !existingProject.slug) {
+        console.log(`更新已有项目 ${data.projectId} 的slug为: ${projectSlug}`);
+        existingProject.slug = projectSlug;
+      } else {
+        console.log(
+          `项目 ${data.projectId} 已存在且已有slug: ${existingProject?.slug}`
+        );
+      }
     }
   }
 
@@ -270,14 +280,11 @@ function getBlogUrl(slug: string) {
                         href={`/blog/${project.slug}`}
                         class="hover:text-primary transition-colors"
                       >
-                        {project.title} {/* 添加索引号用于调试 */}(#{index + 1})
+                        {project.title}
                       </a>
                     </CardTitle>
                   ) : (
-                    <CardTitle>
-                      {project.title} {/* 添加索引号和标识用于调试 */}(#
-                      {index + 1}, 无链接)
-                    </CardTitle>
+                    <CardTitle>{project.title}</CardTitle>
                   )}
                   <CardDescription>{project.description}</CardDescription>
                 </CardHeader>
