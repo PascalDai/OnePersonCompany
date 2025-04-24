@@ -1,0 +1,33 @@
+---
+import { getCollection, type CollectionEntry } from "astro:content";
+import PostLayout from "../../layouts/PostLayout.astro";
+
+export async function getStaticPaths() {
+  const blogEntries = await getCollection("blog");
+
+  // 遍历所有博客条目，为每个条目创建路径
+  const paths = blogEntries.map((entry: CollectionEntry<"blog">) => {
+    // 获取原始slug
+    const originalSlug = entry.slug;
+
+    // 移除日期前缀（如果存在）
+    const cleanSlug = originalSlug.replace(/^\d{4}-\d{2}-\d{2}-/, "");
+
+    console.log(`原始slug: ${originalSlug}, 处理后: ${cleanSlug}`);
+
+    return {
+      params: { slug: cleanSlug },
+      props: { entry },
+    };
+  });
+
+  return paths;
+}
+
+const { entry } = Astro.props as { entry: CollectionEntry<"blog"> };
+const { Content } = await entry.render();
+---
+
+<PostLayout frontmatter={entry.data}>
+  <Content />
+</PostLayout>

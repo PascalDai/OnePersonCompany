@@ -1,0 +1,510 @@
+---
+// 不再使用mock数据
+// import { getProjectsWithTasks } from "@/lib/mock-data";
+import type { Project, Task, TaskStatus } from "@/lib/types";
+// 引入Astro内容集合API
+import { getCollection, type CollectionEntry } from "astro:content";
+
+// 定义扩展的任务类型，包含projectSlug属性
+interface TaskWithProject extends Task {
+  projectTitle: string;
+  projectSlug?: string;
+}
+
+// 获取博客文章数据
+const blogEntries = await getCollection("blog");
+
+// 调试：打印出所有博客条目的slug
+console.log("博客条目slugs:");
+blogEntries.forEach((entry: CollectionEntry<"blog">) => {
+  const originalSlug = entry.slug;
+  const cleanSlug = originalSlug.replace(/^\d{4}-\d{2}-\d{2}-/, "");
+  console.log(`${entry.id} => 原始slug: ${originalSlug}, 处理后: ${cleanSlug}`);
+});
+
+// 从博客文章中提取项目信息
+const projectsMap = new Map<string, Project>();
+
+// 添加调试信息
+console.log(`总共找到 ${blogEntries.length} 篇博客文章`);
+
+// 用于存储文章slug和类型的映射
+const entryMap = new Map<
+  string,
+  { slug: string; type: string; projectId?: string; taskId?: string }
+>();
+
+// 处理博客文章，提取项目和任务信息
+blogEntries.forEach((entry: CollectionEntry<"blog">) => {
+  const { data, slug } = entry;
+  const cleanSlug = slug.replace(/^\d{4}-\d{2}-\d{2}-/, ""); // 移除日期前缀
+
+  // 存储文章信息到映射表，使用清理后的slug
+  entryMap.set(`${data.type}-${data.projectId || ""}-${data.taskId || ""}`, {
+    slug: cleanSlug, // 使用清理后的slug
+    type: data.type,
+    projectId: data.projectId,
+    taskId: data.taskId,
+  });
+
+  // 添加调试信息
+  console.log(
+    `处理文章: ${entry.id}, 类型: ${data.type}, 项目ID: ${data.projectId}, 任务ID: ${data.taskId || "N/A"}`
+  );
+
+  // 提取项目信息（如果存在）
+  if (data.type === "project" && data.projectId) {
+    console.log(
+      `发现项目: ${data.projectTitle || data.title} (ID: ${data.projectId})`
+    );
+    if (!projectsMap.has(data.projectId)) {
+      projectsMap.set(data.projectId, {
+        id: data.projectId,
+        title: data.projectTitle || data.title,
+        description: data.description,
+        tasks: [],
+        createdAt: new Date(data.pubDate),
+        updatedAt: new Date(data.pubDate),
+        slug: cleanSlug, // 使用清理后的slug
+      });
+    }
+  }
+
+  // 提取任务信息（如果存在）
+  if (data.type === "task" && data.taskId && data.projectId) {
+    console.log(
+      `发现任务: ${data.taskTitle || data.title} (ID: ${data.taskId}, 状态: ${data.status || "unknown"})`
+    );
+    const task: Task = {
+      id: data.taskId,
+      title: data.taskTitle || data.title,
+      description: data.description,
+      status: data.status || "todo",
+      projectId: data.projectId,
+      createdAt: new Date(data.pubDate),
+      updatedAt: new Date(data.pubDate),
+      slug: cleanSlug, // 使用清理后的slug
+    };
+
+    // 将任务添加到对应项目
+    if (projectsMap.has(data.projectId)) {
+      const project = projectsMap.get(data.projectId);
+      if (project) {
+        project.tasks.push(task);
+        console.log(`任务 ${data.taskId} 已添加到项目 ${data.projectId}`);
+      } else {
+        console.log(
+          `警告: 找不到项目 ${data.projectId} 来添加任务 ${data.taskId}`
+        );
+      }
+    } else {
+      console.log(
+        `警告: 项目 ${data.projectId} 不存在于projectsMap中，为任务 ${data.taskId} 创建新项目`
+      );
+      // 如果项目不存在，创建一个新项目
+      projectsMap.set(data.projectId, {
+        id: data.projectId,
+        title: data.projectTitle || "未知项目",
+        description: "自动创建的项目",
+        tasks: [task],
+        createdAt: new Date(data.pubDate),
+        updatedAt: new Date(data.pubDate),
+      });
+    }
+  }
+});
+
+// 转换为数组
+const projects = Array.from(projectsMap.values());
+
+console.log(`共提取出 ${projects.length} 个项目`);
+projects.forEach((project) => {
+  console.log(
+    `项目 ${project.id}: ${project.title} - 共有 ${project.tasks.length} 个任务`
+  );
+  project.tasks.forEach((task) => {
+    console.log(`  - 任务 ${task.id}: ${task.title} (${task.status})`);
+  });
+});
+
+// 状态颜色映射
+const statusColors = {
+  todo: "secondary",
+  "in-progress": "warning",
+  completed: "success",
+} as const;
+
+// 状态标签映射
+const statusLabels = {
+  todo: "待办",
+  "in-progress": "进行中",
+  completed: "已完成",
+} as const;
+
+// 合并所有任务并添加项目标题
+const allTasks = projects.flatMap(
+  (project) =>
+    project.tasks.map((task) => ({
+      ...task,
+      projectTitle: project.title,
+      projectSlug: project.slug, // 添加项目的slug
+    })) as TaskWithProject[]
+);
+
+// 按状态分组
+const todoTasks = allTasks.filter((task) => task.status === "todo");
+const inProgressTasks = allTasks.filter(
+  (task) => task.status === "in-progress"
+);
+const completedTasks = allTasks.filter((task) => task.status === "completed");
+
+console.log(
+  `总任务数: ${allTasks.length}, 待办: ${todoTasks.length}, 进行中: ${inProgressTasks.length}, 已完成: ${completedTasks.length}`
+);
+
+// 获取链接地址的辅助函数
+function getBlogUrl(slug: string) {
+  // slug应该已经是处理过的，直接使用
+  return `/blog/${slug}`;
+}
+---
+
+<section id="kanban" class="min-h-screen pt-20 pb-16">
+  <!-- 添加调试信息显示
+  <div class="container mx-auto px-4 mb-8 p-4 bg-muted/30 rounded-lg text-xs">
+    <h3 class="font-bold mb-2">调试信息:</h3>
+    <p>找到 {blogEntries.length} 篇博客文章</p>
+    <p>提取出 {projects.length} 个项目</p>
+    <p>
+      总任务数: {allTasks.length}, 待办: {todoTasks.length}, 进行中: {
+        inProgressTasks.length
+      }, 已完成: {completedTasks.length}
+    </p>
+  </div> -->
+
+  <div class="container mx-auto px-4">
+    <div class="flex justify-between items-center mb-8">
+      <h2 class="text-3xl font-bold">我的工作记录</h2>
+      <div class="flex space-x-2 bg-muted p-1 rounded-lg">
+        <button
+          class="px-4 py-2 rounded-md text-sm font-medium transition-colors js-projects-tab active-tab"
+          data-tab="projects"
+        >
+          项目
+        </button>
+        <button
+          class="px-4 py-2 rounded-md text-sm font-medium transition-colors js-tasks-tab"
+          data-tab="tasks"
+        >
+          任务
+        </button>
+      </div>
+    </div>
+
+    <div class="projects-view">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {
+          projects.map((project) => (
+            <div class="h-full flex flex-col border rounded-lg shadow-sm">
+              <div class="p-6 pb-4">
+                <h3 class="text-xl font-semibold">
+                  {project.slug ? (
+                    <a
+                      href={getBlogUrl(project.slug)}
+                      class="hover:text-primary transition-colors"
+                    >
+                      {project.title}
+                    </a>
+                  ) : (
+                    project.title
+                  )}
+                </h3>
+                <p class="text-sm text-muted-foreground mt-1">
+                  {project.description}
+                </p>
+              </div>
+              <div class="p-6 pt-0 flex-grow">
+                <div class="space-y-4">
+                  <div class="flex items-center justify-between text-sm">
+                    <span class="text-muted-foreground">任务:</span>
+                    <span class="font-medium">{project.tasks.length}个</span>
+                  </div>
+
+                  <div class="space-y-2">
+                    {project.tasks.slice(0, 3).map((task) => (
+                      <div class="flex items-center justify-between p-3 bg-muted/50 rounded-md">
+                        <span class="font-medium truncate mr-2">
+                          {task.slug ? (
+                            <a
+                              href={getBlogUrl(task.slug)}
+                              class="hover:text-primary transition-colors"
+                            >
+                              {task.title}
+                            </a>
+                          ) : (
+                            task.title
+                          )}
+                        </span>
+                        <span
+                          class={`px-2 py-1 rounded-full text-xs bg-${statusColors[task.status]}/10 text-${statusColors[task.status]}`}
+                        >
+                          {statusLabels[task.status]}
+                        </span>
+                      </div>
+                    ))}
+
+                    {project.tasks.length > 3 && (
+                      <div class="text-center text-sm text-muted-foreground mt-2">
+                        +{project.tasks.length - 3}个更多任务
+                      </div>
+                    )}
+
+                    {project.tasks.length === 0 && (
+                      <div class="text-center py-3 text-sm text-muted-foreground">
+                        暂无任务
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+
+    <div class="tasks-view hidden">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- 待办任务列 -->
+        <div>
+          <div class="flex items-center mb-4">
+            <h3 class="text-lg font-semibold">待办</h3>
+            <span
+              class="ml-2 px-2 py-1 rounded-full text-xs bg-secondary/10 text-secondary"
+            >
+              {todoTasks.length}
+            </span>
+          </div>
+
+          <div class="space-y-3">
+            {
+              todoTasks.map((task: TaskWithProject) => (
+                <div class="overflow-hidden border rounded-lg shadow-sm">
+                  <div class="p-4 pb-2">
+                    <h4 class="text-base font-semibold">
+                      {task.slug ? (
+                        <a
+                          href={getBlogUrl(task.slug)}
+                          class="hover:text-primary transition-colors"
+                        >
+                          {task.title}
+                        </a>
+                      ) : (
+                        task.title
+                      )}
+                    </h4>
+                  </div>
+                  <div class="p-4 pt-0">
+                    <p class="text-sm text-muted-foreground mb-2 line-clamp-2">
+                      {task.description}
+                    </p>
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-full">
+                        {task.projectSlug ? (
+                          <a
+                            href={getBlogUrl(task.projectSlug)}
+                            class="hover:underline"
+                          >
+                            {task.projectTitle}
+                          </a>
+                        ) : (
+                          task.projectTitle
+                        )}
+                      </span>
+                      <span class="text-xs text-muted-foreground">
+                        {new Date(task.updatedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            }
+
+            {
+              todoTasks.length === 0 && (
+                <div class="text-center p-4 bg-muted/30 rounded-lg text-sm text-muted-foreground">
+                  暂无待办的任务
+                </div>
+              )
+            }
+          </div>
+        </div>
+
+        <!-- 进行中任务列 -->
+        <div>
+          <div class="flex items-center mb-4">
+            <h3 class="text-lg font-semibold">进行中</h3>
+            <span
+              class="ml-2 px-2 py-1 rounded-full text-xs bg-warning/10 text-warning"
+            >
+              {inProgressTasks.length}
+            </span>
+          </div>
+
+          <div class="space-y-3">
+            {
+              inProgressTasks.map((task: TaskWithProject) => (
+                <div class="overflow-hidden border rounded-lg shadow-sm">
+                  <div class="p-4 pb-2">
+                    <h4 class="text-base font-semibold">
+                      {task.slug ? (
+                        <a
+                          href={getBlogUrl(task.slug)}
+                          class="hover:text-primary transition-colors"
+                        >
+                          {task.title}
+                        </a>
+                      ) : (
+                        task.title
+                      )}
+                    </h4>
+                  </div>
+                  <div class="p-4 pt-0">
+                    <p class="text-sm text-muted-foreground mb-2 line-clamp-2">
+                      {task.description}
+                    </p>
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-full">
+                        {task.projectSlug ? (
+                          <a
+                            href={getBlogUrl(task.projectSlug)}
+                            class="hover:underline"
+                          >
+                            {task.projectTitle}
+                          </a>
+                        ) : (
+                          task.projectTitle
+                        )}
+                      </span>
+                      <span class="text-xs text-muted-foreground">
+                        {new Date(task.updatedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            }
+
+            {
+              inProgressTasks.length === 0 && (
+                <div class="text-center p-4 bg-muted/30 rounded-lg text-sm text-muted-foreground">
+                  暂无进行中的任务
+                </div>
+              )
+            }
+          </div>
+        </div>
+
+        <!-- 已完成任务列 -->
+        <div>
+          <div class="flex items-center mb-4">
+            <h3 class="text-lg font-semibold">已完成</h3>
+            <span
+              class="ml-2 px-2 py-1 rounded-full text-xs bg-success/10 text-success"
+            >
+              {completedTasks.length}
+            </span>
+          </div>
+
+          <div class="space-y-3">
+            {
+              completedTasks.map((task: TaskWithProject) => (
+                <div class="overflow-hidden border rounded-lg shadow-sm">
+                  <div class="p-4 pb-2">
+                    <h4 class="text-base font-semibold">
+                      {task.slug ? (
+                        <a
+                          href={getBlogUrl(task.slug)}
+                          class="hover:text-primary transition-colors"
+                        >
+                          {task.title}
+                        </a>
+                      ) : (
+                        task.title
+                      )}
+                    </h4>
+                  </div>
+                  <div class="p-4 pt-0">
+                    <p class="text-sm text-muted-foreground mb-2 line-clamp-2">
+                      {task.description}
+                    </p>
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-full">
+                        {task.projectSlug ? (
+                          <a
+                            href={getBlogUrl(task.projectSlug)}
+                            class="hover:underline"
+                          >
+                            {task.projectTitle}
+                          </a>
+                        ) : (
+                          task.projectTitle
+                        )}
+                      </span>
+                      <span class="text-xs text-muted-foreground">
+                        {new Date(task.updatedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            }
+
+            {
+              completedTasks.length === 0 && (
+                <div class="text-center p-4 bg-muted/30 rounded-lg text-sm text-muted-foreground">
+                  暂无已完成的任务
+                </div>
+              )
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  // 处理标签切换逻辑
+  document.addEventListener("DOMContentLoaded", () => {
+    const projectsTab = document.querySelector(".js-projects-tab");
+    const tasksTab = document.querySelector(".js-tasks-tab");
+    const projectsView = document.querySelector(".projects-view");
+    const tasksView = document.querySelector(".tasks-view");
+
+    projectsTab?.addEventListener("click", () => {
+      projectsTab.classList.add("active-tab");
+      tasksTab?.classList.remove("active-tab");
+      projectsView?.classList.remove("hidden");
+      tasksView?.classList.add("hidden");
+    });
+
+    tasksTab?.addEventListener("click", () => {
+      tasksTab.classList.add("active-tab");
+      projectsTab?.classList.remove("active-tab");
+      tasksView?.classList.remove("hidden");
+      projectsView?.classList.add("hidden");
+    });
+  });
+</script>
+
+<style>
+  .active-tab {
+    background-color: var(--background);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .hidden {
+    display: none;
+  }
+</style>

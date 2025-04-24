@@ -8,6 +8,7 @@ export interface Task {
   projectId: string;
   createdAt: Date;
   updatedAt: Date;
+  slug?: string;
 }
 
 export interface Project {
@@ -17,6 +18,7 @@ export interface Project {
   tasks: Task[];
   createdAt: Date;
   updatedAt: Date;
+  slug?: string;
 }
 
 export interface BlogStats {
