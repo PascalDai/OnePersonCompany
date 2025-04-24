@@ -4,6 +4,15 @@
 import type { Project, Task, TaskStatus } from "@/lib/types";
 // 引入Astro内容集合API
 import { getCollection, type CollectionEntry } from "astro:content";
+// 引入UI组件
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "./ui/card";
+import { Badge } from "./ui/badge";
 
 // 定义扩展的任务类型，包含projectSlug属性
 interface TaskWithProject extends Task {
@@ -205,25 +214,23 @@ function getBlogUrl(slug: string) {
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {
           projects.map((project) => (
-            <div class="h-full flex flex-col border rounded-lg shadow-sm">
-              <div class="p-6 pb-4">
-                <h3 class="text-xl font-semibold">
-                  {project.slug ? (
+            <Card className="h-full flex flex-col">
+              <CardHeader>
+                {project.slug ? (
+                  <CardTitle>
                     <a
                       href={getBlogUrl(project.slug)}
                       class="hover:text-primary transition-colors"
                     >
                       {project.title}
                     </a>
-                  ) : (
-                    project.title
-                  )}
-                </h3>
-                <p class="text-sm text-muted-foreground mt-1">
-                  {project.description}
-                </p>
-              </div>
-              <div class="p-6 pt-0 flex-grow">
+                  </CardTitle>
+                ) : (
+                  <CardTitle>{project.title}</CardTitle>
+                )}
+                <CardDescription>{project.description}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex-grow">
                 <div class="space-y-4">
                   <div class="flex items-center justify-between text-sm">
                     <span class="text-muted-foreground">任务:</span>
@@ -245,11 +252,9 @@ function getBlogUrl(slug: string) {
                             task.title
                           )}
                         </span>
-                        <span
-                          class={`px-2 py-1 rounded-full text-xs bg-${statusColors[task.status]}/10 text-${statusColors[task.status]}`}
-                        >
+                        <Badge variant={statusColors[task.status]}>
                           {statusLabels[task.status]}
-                        </span>
+                        </Badge>
                       </div>
                     ))}
 
@@ -266,8 +271,8 @@ function getBlogUrl(slug: string) {
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           ))
         }
       </div>
@@ -279,19 +284,17 @@ function getBlogUrl(slug: string) {
         <div>
           <div class="flex items-center mb-4">
             <h3 class="text-lg font-semibold">待办</h3>
-            <span
-              class="ml-2 px-2 py-1 rounded-full text-xs bg-secondary/10 text-secondary"
-            >
+            <Badge variant={statusColors.todo} className="ml-2">
               {todoTasks.length}
-            </span>
+            </Badge>
           </div>
 
           <div class="space-y-3">
             {
               todoTasks.map((task: TaskWithProject) => (
-                <div class="overflow-hidden border rounded-lg shadow-sm">
-                  <div class="p-4 pb-2">
-                    <h4 class="text-base font-semibold">
+                <Card className="overflow-hidden">
+                  <CardHeader className="p-4 pb-2">
+                    <CardTitle className="text-base">
                       {task.slug ? (
                         <a
                           href={getBlogUrl(task.slug)}
@@ -302,9 +305,9 @@ function getBlogUrl(slug: string) {
                       ) : (
                         task.title
                       )}
-                    </h4>
-                  </div>
-                  <div class="p-4 pt-0">
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
                     <p class="text-sm text-muted-foreground mb-2 line-clamp-2">
                       {task.description}
                     </p>
@@ -325,8 +328,8 @@ function getBlogUrl(slug: string) {
                         {new Date(task.updatedAt).toLocaleDateString()}
                       </span>
                     </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               ))
             }
 
@@ -344,19 +347,17 @@ function getBlogUrl(slug: string) {
         <div>
           <div class="flex items-center mb-4">
             <h3 class="text-lg font-semibold">进行中</h3>
-            <span
-              class="ml-2 px-2 py-1 rounded-full text-xs bg-warning/10 text-warning"
-            >
+            <Badge variant={statusColors["in-progress"]} className="ml-2">
               {inProgressTasks.length}
-            </span>
+            </Badge>
           </div>
 
           <div class="space-y-3">
             {
               inProgressTasks.map((task: TaskWithProject) => (
-                <div class="overflow-hidden border rounded-lg shadow-sm">
-                  <div class="p-4 pb-2">
-                    <h4 class="text-base font-semibold">
+                <Card className="overflow-hidden">
+                  <CardHeader className="p-4 pb-2">
+                    <CardTitle className="text-base">
                       {task.slug ? (
                         <a
                           href={getBlogUrl(task.slug)}
@@ -367,9 +368,9 @@ function getBlogUrl(slug: string) {
                       ) : (
                         task.title
                       )}
-                    </h4>
-                  </div>
-                  <div class="p-4 pt-0">
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
                     <p class="text-sm text-muted-foreground mb-2 line-clamp-2">
                       {task.description}
                     </p>
@@ -390,8 +391,8 @@ function getBlogUrl(slug: string) {
                         {new Date(task.updatedAt).toLocaleDateString()}
                       </span>
                     </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               ))
             }
 
@@ -409,19 +410,17 @@ function getBlogUrl(slug: string) {
         <div>
           <div class="flex items-center mb-4">
             <h3 class="text-lg font-semibold">已完成</h3>
-            <span
-              class="ml-2 px-2 py-1 rounded-full text-xs bg-success/10 text-success"
-            >
+            <Badge variant={statusColors.completed} className="ml-2">
               {completedTasks.length}
-            </span>
+            </Badge>
           </div>
 
           <div class="space-y-3">
             {
               completedTasks.map((task: TaskWithProject) => (
-                <div class="overflow-hidden border rounded-lg shadow-sm">
-                  <div class="p-4 pb-2">
-                    <h4 class="text-base font-semibold">
+                <Card className="overflow-hidden">
+                  <CardHeader className="p-4 pb-2">
+                    <CardTitle className="text-base">
                       {task.slug ? (
                         <a
                           href={getBlogUrl(task.slug)}
@@ -432,9 +431,9 @@ function getBlogUrl(slug: string) {
                       ) : (
                         task.title
                       )}
-                    </h4>
-                  </div>
-                  <div class="p-4 pt-0">
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
                     <p class="text-sm text-muted-foreground mb-2 line-clamp-2">
                       {task.description}
                     </p>
@@ -455,8 +454,8 @@ function getBlogUrl(slug: string) {
                         {new Date(task.updatedAt).toLocaleDateString()}
                       </span>
                     </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               ))
             }
 
