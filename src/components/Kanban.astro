@@ -67,6 +67,9 @@ blogEntries.forEach((entry: CollectionEntry<"blog">) => {
       `发现项目: ${data.projectTitle || data.title} (ID: ${data.projectId})`
     );
     if (!projectsMap.has(data.projectId)) {
+      const projectSlug = cleanSlug;
+      console.log(`项目 ${data.projectId} 的slug设置为: ${projectSlug}`);
+
       projectsMap.set(data.projectId, {
         id: data.projectId,
         title: data.projectTitle || data.title,
@@ -74,8 +77,10 @@ blogEntries.forEach((entry: CollectionEntry<"blog">) => {
         tasks: [],
         createdAt: new Date(data.pubDate),
         updatedAt: new Date(data.pubDate),
-        slug: cleanSlug, // 使用清理后的slug
+        slug: projectSlug, // 使用清理后的slug
       });
+    } else {
+      console.log(`项目 ${data.projectId} 已存在，不更新slug`);
     }
   }
 
@@ -127,12 +132,15 @@ blogEntries.forEach((entry: CollectionEntry<"blog">) => {
 const projects = Array.from(projectsMap.values());
 
 console.log(`共提取出 ${projects.length} 个项目`);
-projects.forEach((project) => {
+projects.forEach((project, idx) => {
   console.log(
-    `项目 ${project.id}: ${project.title} - 共有 ${project.tasks.length} 个任务`
+    `项目 ${idx + 1}/${project.id}: ${project.title} - slug: ${project.slug || "无"} - 共有 ${project.tasks.length} 个任务`
   );
+  console.log("项目详细数据:", JSON.stringify(project, null, 2));
   project.tasks.forEach((task) => {
-    console.log(`  - 任务 ${task.id}: ${task.title} (${task.status})`);
+    console.log(
+      `  - 任务 ${task.id}: ${task.title} (${task.status}), slug: ${task.slug || "无"}`
+    );
   });
 });
 
@@ -249,67 +257,75 @@ function getBlogUrl(slug: string) {
     <div class="projects-view">
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {
-          projects.map((project) => (
-            <Card className="h-full flex flex-col">
-              <CardHeader>
-                {project.slug ? (
-                  <CardTitle>
-                    <a
-                      href={getBlogUrl(project.slug)}
-                      class="hover:text-primary transition-colors"
-                    >
-                      {project.title}
-                    </a>
-                  </CardTitle>
-                ) : (
-                  <CardTitle>{project.title}</CardTitle>
-                )}
-                <CardDescription>{project.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow">
-                <div class="space-y-4">
-                  <div class="flex items-center justify-between text-sm">
-                    <span class="text-muted-foreground">任务:</span>
-                    <span class="font-medium">{project.tasks.length}个</span>
+          projects.map((project, index) => {
+            console.log(
+              `渲染项目卡片 #${index + 1}: ${project.title}, slug=${project.slug || "无"}`
+            );
+            return (
+              <Card className="h-full flex flex-col">
+                <CardHeader>
+                  {project.slug ? (
+                    <CardTitle>
+                      <a
+                        href={`/blog/${project.slug}`}
+                        class="hover:text-primary transition-colors"
+                      >
+                        {project.title} {/* 添加索引号用于调试 */}(#{index + 1})
+                      </a>
+                    </CardTitle>
+                  ) : (
+                    <CardTitle>
+                      {project.title} {/* 添加索引号和标识用于调试 */}(#
+                      {index + 1}, 无链接)
+                    </CardTitle>
+                  )}
+                  <CardDescription>{project.description}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                  <div class="space-y-4">
+                    <div class="flex items-center justify-between text-sm">
+                      <span class="text-muted-foreground">任务:</span>
+                      <span class="font-medium">{project.tasks.length}个</span>
+                    </div>
+
+                    <div class="space-y-2">
+                      {project.tasks.slice(0, 3).map((task) => (
+                        <div class="flex items-center justify-between p-3 bg-muted/50 rounded-md">
+                          <span class="font-medium truncate mr-2">
+                            {task.slug ? (
+                              <a
+                                href={getBlogUrl(task.slug)}
+                                class="hover:text-primary transition-colors"
+                              >
+                                {task.title}
+                              </a>
+                            ) : (
+                              task.title
+                            )}
+                          </span>
+                          <Badge variant={statusColors[task.status]}>
+                            {statusLabels[task.status]}
+                          </Badge>
+                        </div>
+                      ))}
+
+                      {project.tasks.length > 3 && (
+                        <div class="text-center text-sm text-muted-foreground mt-2">
+                          +{project.tasks.length - 3}个更多任务
+                        </div>
+                      )}
+
+                      {project.tasks.length === 0 && (
+                        <div class="text-center py-3 text-sm text-muted-foreground">
+                          暂无任务
+                        </div>
+                      )}
+                    </div>
                   </div>
-
-                  <div class="space-y-2">
-                    {project.tasks.slice(0, 3).map((task) => (
-                      <div class="flex items-center justify-between p-3 bg-muted/50 rounded-md">
-                        <span class="font-medium truncate mr-2">
-                          {task.slug ? (
-                            <a
-                              href={getBlogUrl(task.slug)}
-                              class="hover:text-primary transition-colors"
-                            >
-                              {task.title}
-                            </a>
-                          ) : (
-                            task.title
-                          )}
-                        </span>
-                        <Badge variant={statusColors[task.status]}>
-                          {statusLabels[task.status]}
-                        </Badge>
-                      </div>
-                    ))}
-
-                    {project.tasks.length > 3 && (
-                      <div class="text-center text-sm text-muted-foreground mt-2">
-                        +{project.tasks.length - 3}个更多任务
-                      </div>
-                    )}
-
-                    {project.tasks.length === 0 && (
-                      <div class="text-center py-3 text-sm text-muted-foreground">
-                        暂无任务
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                </CardContent>
+              </Card>
+            );
+          })
         }
       </div>
     </div>
