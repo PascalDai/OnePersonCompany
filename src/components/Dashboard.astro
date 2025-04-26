@@ -266,34 +266,40 @@ const icons = {
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
       <!-- 统计卡片1：项目数量 -->
-      <a href="/projects" class="block">
-        <Card className="hover:shadow-md transition-all">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium text-muted-foreground">
-              总项目数
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div class="text-3xl font-bold">{stats.totalProjects}</div>
-            <div class="text-xs text-muted-foreground mt-1">查看所有项目</div>
-          </CardContent>
-        </Card>
-      </a>
 
-      <!-- 统计卡片2：任务数量 -->
-      <Card>
+      <Card className="hover:shadow-md transition-all">
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-medium text-muted-foreground">
-            总任务数
+            总项目数
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div class="text-3xl font-bold">{stats.totalTasks}</div>
-          <div class="text-xs text-muted-foreground mt-1">
-            已完成 {stats.completedTasks} 个任务
+          <div class="text-3xl font-bold">
+            <a href="/projects" class="hover:text-primary transition-colors">
+              {stats.totalProjects}
+            </a>
           </div>
+
+          <div class="text-xs text-muted-foreground mt-1">查看所有项目</div>
         </CardContent>
       </Card>
+
+      <!-- 统计卡片2：任务数量 -->
+      <a href="/tasks" class="block">
+        <Card className="hover:shadow-md transition-all">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-medium text-muted-foreground">
+              总任务数
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div class="text-3xl font-bold">{stats.totalTasks}</div>
+            <div class="text-xs text-muted-foreground mt-1">
+              已完成 {stats.completedTasks} 个任务
+            </div>
+          </CardContent>
+        </Card>
+      </a>
 
       <!-- 统计卡片3：任务完成率 -->
       <Card>

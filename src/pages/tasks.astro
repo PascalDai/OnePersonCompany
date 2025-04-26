@@ -1,0 +1,473 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
+import { getCollection, type CollectionEntry } from "astro:content";
+import type { Project, Task } from "@/lib/types";
+
+// 获取URL查询参数
+const projectId = Astro.url.searchParams.get("project");
+const taskStatus = Astro.url.searchParams.get("status");
+const pageParam = Astro.url.searchParams.get("page") || "1";
+const currentPage = parseInt(pageParam) || 1;
+const itemsPerPage = 6; // 每页显示6个任务
+
+// 获取博客文章数据
+const blogEntries = await getCollection("blog");
+
+// 创建项目映射
+const projectsMap = new Map<string, Project>();
+
+// 存储所有任务信息
+interface ExtendedTask extends Task {
+  projectTitle: string;
+  projectSlug?: string;
+}
+
+const allTasks: ExtendedTask[] = [];
+
+// 处理博客文章，提取项目和任务信息
+blogEntries.forEach((entry: CollectionEntry<"blog">) => {
+  const { data, slug } = entry;
+  const cleanSlug = slug.replace(/^\d{4}-\d{2}-\d{2}-/, ""); // 移除日期前缀
+
+  // 提取项目信息
+  if (data.type === "project" && data.projectId) {
+    if (!projectsMap.has(data.projectId)) {
+      projectsMap.set(data.projectId, {
+        id: data.projectId,
+        title: data.projectTitle || data.title,
+        description: data.description,
+        tasks: [],
+        createdAt: new Date(data.pubDate),
+        updatedAt: new Date(data.pubDate),
+        slug: cleanSlug,
+      });
+    }
+  }
+
+  // 提取任务信息
+  if (data.type === "task" && data.taskId && data.projectId) {
+    const task: Task = {
+      id: data.taskId,
+      title: data.taskTitle || data.title,
+      description: data.description,
+      status: data.status || "todo",
+      projectId: data.projectId,
+      createdAt: new Date(data.pubDate),
+      updatedAt: new Date(data.pubDate),
+      slug: cleanSlug,
+    };
+
+    // 将任务添加到对应项目
+    if (projectsMap.has(data.projectId)) {
+      const project = projectsMap.get(data.projectId);
+      if (project) {
+        project.tasks.push(task);
+      }
+    }
+
+    // 为每个任务添加项目标题和项目slug
+    const projectTitle = projectsMap.has(data.projectId)
+      ? projectsMap.get(data.projectId)?.title || "未知项目"
+      : "未知项目";
+
+    const projectSlug = projectsMap.has(data.projectId)
+      ? projectsMap.get(data.projectId)?.slug
+      : undefined;
+
+    // 添加到所有任务列表
+    allTasks.push({
+      ...task,
+      projectTitle,
+      projectSlug,
+    });
+  }
+});
+
+// 应用筛选逻辑
+let filteredTasks = [...allTasks];
+
+// 按项目筛选
+if (projectId) {
+  filteredTasks = filteredTasks.filter((task) => task.projectId === projectId);
+}
+
+// 按状态筛选
+if (taskStatus) {
+  filteredTasks = filteredTasks.filter((task) => task.status === taskStatus);
+}
+
+// 排序：按状态（进行中 > 待办 > 已完成）和创建时间
+const statusOrder = {
+  "in-progress": 0,
+  todo: 1,
+  completed: 2,
+};
+
+filteredTasks.sort((a, b) => {
+  // 首先按状态排序
+  const statusDiff =
+    statusOrder[a.status as keyof typeof statusOrder] -
+    statusOrder[b.status as keyof typeof statusOrder];
+  if (statusDiff !== 0) return statusDiff;
+
+  // 然后按创建时间排序（较早创建的排在前面）
+  return a.createdAt.getTime() - b.createdAt.getTime();
+});
+
+// 分页处理
+const totalTasks = filteredTasks.length;
+const totalPages = Math.ceil(totalTasks / itemsPerPage);
+const paginatedTasks = filteredTasks.slice(
+  (currentPage - 1) * itemsPerPage,
+  currentPage * itemsPerPage
+);
+
+// 准备项目下拉菜单选项
+const projects = Array.from(projectsMap.values());
+
+// 状态标签映射
+const statusLabels = {
+  todo: "待办",
+  "in-progress": "进行中",
+  completed: "已完成",
+} as const;
+
+// 状态颜色映射
+const statusColors = {
+  todo: "secondary",
+  "in-progress": "warning",
+  completed: "success",
+} as const;
+
+// 用于构建带有当前筛选条件的URL
+function buildUrl(params: Record<string, string | undefined>) {
+  const url = new URL(Astro.url);
+
+  // 移除所有现有查询参数
+  for (const key of url.searchParams.keys()) {
+    if (key !== "project" && key !== "status" && key !== "page") continue;
+    url.searchParams.delete(key);
+  }
+
+  // 添加新的查询参数
+  for (const [key, value] of Object.entries(params)) {
+    if (value) url.searchParams.set(key, value);
+  }
+
+  return url.toString();
+}
+---
+
+<BaseLayout title="任务列表 | One Person Company" description="查看所有任务">
+  <section class="py-16 px-4">
+    <div class="container mx-auto">
+      <header class="mb-8">
+        <h1 class="text-3xl font-bold mb-2">任务列表</h1>
+        <p class="text-muted-foreground">
+          共 {totalTasks} 个任务
+          {
+            projectId && projectsMap.has(projectId as string) && (
+              <>，项目：{projectsMap.get(projectId as string)?.title}</>
+            )
+          }
+          {
+            taskStatus && (
+              <>
+                ，状态：{statusLabels[taskStatus as keyof typeof statusLabels]}
+              </>
+            )
+          }
+        </p>
+      </header>
+
+      <!-- 筛选区域 -->
+      <div class="mb-8">
+        <div class="bg-card border rounded-lg p-4 shadow-sm">
+          <div class="flex flex-wrap gap-4">
+            <!-- 项目筛选 -->
+            <div class="w-full md:w-auto">
+              <label for="project-filter" class="block text-sm font-medium mb-1"
+                >项目</label
+              >
+              <select
+                id="project-filter"
+                class="w-full md:w-64 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                onchange="window.location.href = this.value"
+              >
+                <option
+                  value={buildUrl({
+                    project: undefined,
+                    status: taskStatus as string,
+                    page: "1",
+                  })}
+                >
+                  全部项目
+                </option>
+                {
+                  projects.map((project) => (
+                    <option
+                      value={buildUrl({
+                        project: project.id,
+                        status: taskStatus as string,
+                        page: "1",
+                      })}
+                      selected={projectId === project.id}
+                    >
+                      {project.title}
+                    </option>
+                  ))
+                }
+              </select>
+            </div>
+
+            <!-- 状态筛选 -->
+            <div class="w-full md:w-auto">
+              <label for="status-filter" class="block text-sm font-medium mb-1"
+                >状态</label
+              >
+              <select
+                id="status-filter"
+                class="w-full md:w-64 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                onchange="window.location.href = this.value"
+              >
+                <option
+                  value={buildUrl({
+                    project: projectId as string,
+                    status: undefined,
+                    page: "1",
+                  })}
+                >
+                  全部状态
+                </option>
+                <option
+                  value={buildUrl({
+                    project: projectId as string,
+                    status: "in-progress",
+                    page: "1",
+                  })}
+                  selected={taskStatus === "in-progress"}
+                >
+                  进行中
+                </option>
+                <option
+                  value={buildUrl({
+                    project: projectId as string,
+                    status: "todo",
+                    page: "1",
+                  })}
+                  selected={taskStatus === "todo"}
+                >
+                  待办
+                </option>
+                <option
+                  value={buildUrl({
+                    project: projectId as string,
+                    status: "completed",
+                    page: "1",
+                  })}
+                  selected={taskStatus === "completed"}
+                >
+                  已完成
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 任务卡片网格 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        {
+          paginatedTasks.length > 0 ? (
+            paginatedTasks.map((task) => (
+              <Card className="h-full flex flex-col transition-all hover:shadow-lg">
+                <CardHeader>
+                  <div class="flex justify-between items-start">
+                    <CardTitle className="text-xl mb-2">
+                      <a
+                        href={`/blog/${task.slug}`}
+                        class="hover:text-primary transition-colors"
+                      >
+                        {task.title}
+                      </a>
+                    </CardTitle>
+                    <Badge
+                      variant={
+                        statusColors[task.status as keyof typeof statusColors]
+                      }
+                      className="whitespace-nowrap"
+                    >
+                      {statusLabels[task.status as keyof typeof statusLabels]}
+                    </Badge>
+                  </div>
+                  <CardDescription className="line-clamp-2">
+                    {task.description}
+                  </CardDescription>
+                </CardHeader>
+
+                <CardContent className="flex-1">
+                  <div class="mt-2">
+                    <span class="text-sm text-muted-foreground">
+                      所属项目:{" "}
+                    </span>
+                    {task.projectSlug ? (
+                      <a
+                        href={`/blog/${task.projectSlug}`}
+                        class="text-sm font-medium hover:text-primary transition-colors"
+                      >
+                        {task.projectTitle}
+                      </a>
+                    ) : (
+                      <span class="text-sm font-medium">
+                        {task.projectTitle}
+                      </span>
+                    )}
+                  </div>
+                </CardContent>
+
+                <CardFooter className="pt-0 text-xs text-muted-foreground">
+                  <div class="w-full flex justify-between">
+                    <span>创建于: {task.createdAt.toLocaleDateString()}</span>
+                    <a
+                      href={`/tasks?project=${task.projectId}`}
+                      class="text-xs hover:text-primary transition-colors"
+                    >
+                      查看相关任务
+                    </a>
+                  </div>
+                </CardFooter>
+              </Card>
+            ))
+          ) : (
+            <div class="col-span-3 py-16 text-center">
+              <div class="text-xl text-muted-foreground">
+                没有找到符合条件的任务
+              </div>
+              <a
+                href="/tasks"
+                class="inline-block mt-4 px-4 py-2 rounded-md bg-primary text-white hover:bg-primary/90 transition-colors"
+              >
+                查看所有任务
+              </a>
+            </div>
+          )
+        }
+      </div>
+
+      <!-- 分页控件 -->
+      {
+        totalPages > 1 && (
+          <div class="flex justify-center mt-8">
+            <div class="flex items-center gap-1">
+              {/* 上一页按钮 */}
+              {currentPage > 1 && (
+                <a
+                  href={buildUrl({
+                    project: projectId as string,
+                    status: taskStatus as string,
+                    page: (currentPage - 1).toString(),
+                  })}
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input hover:bg-accent"
+                  aria-label="上一页"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="m15 18-6-6 6-6" />
+                  </svg>
+                </a>
+              )}
+
+              {/* 页码按钮 */}
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                // 为页码创建一个合理的范围
+                let startPage = Math.max(1, currentPage - 2);
+                let endPage = Math.min(startPage + 4, totalPages);
+
+                if (endPage - startPage < 4) {
+                  startPage = Math.max(1, endPage - 4);
+                }
+
+                const pageNumber = startPage + i;
+
+                // 如果页码超出范围，不显示
+                if (pageNumber > endPage) return null;
+
+                return (
+                  <a
+                    href={buildUrl({
+                      project: projectId as string,
+                      status: taskStatus as string,
+                      page: pageNumber.toString(),
+                    })}
+                    class={`inline-flex h-9 w-9 items-center justify-center rounded-md text-sm ${
+                      pageNumber === currentPage
+                        ? "bg-primary text-primary-foreground"
+                        : "border border-input hover:bg-accent"
+                    }`}
+                    aria-current={
+                      pageNumber === currentPage ? "page" : undefined
+                    }
+                  >
+                    {pageNumber}
+                  </a>
+                );
+              })}
+
+              {/* 下一页按钮 */}
+              {currentPage < totalPages && (
+                <a
+                  href={buildUrl({
+                    project: projectId as string,
+                    status: taskStatus as string,
+                    page: (currentPage + 1).toString(),
+                  })}
+                  class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input hover:bg-accent"
+                  aria-label="下一页"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                </a>
+              )}
+            </div>
+          </div>
+        )
+      }
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>

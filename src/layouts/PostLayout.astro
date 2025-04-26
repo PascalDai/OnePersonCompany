@@ -3,7 +3,7 @@ import BlogLayout from "./BlogLayout.astro";
 import { siteConfig } from "../config/site";
 
 const { frontmatter } = Astro.props;
-const { title, description, pubDate, author, image, tags } = frontmatter;
+const { title, description, pubDate, author, image, tags, type, projectId } = frontmatter;
 
 // 格式化日期
 function formatDate(date: string | Date): string {
@@ -16,6 +16,9 @@ function formatDate(date: string | Date): string {
 
 // 设置页面标题和描述
 const pageTitle = `${title} | ${siteConfig.name}`;
+
+// 检查是否为项目类型
+const isProject = type === 'project';
 ---
 
 <BlogLayout title={pageTitle} description={description}>
@@ -40,6 +43,26 @@ const pageTitle = `${title} | ${siteConfig.name}`;
                   #{tag}
                 </span>
               ))}
+            </div>
+          )}
+          
+          {/* 如果是项目类型，添加查看任务的链接 */}
+          {isProject && projectId && (
+            <div class="mt-4">
+              <a 
+                href={`/tasks?project=${projectId}`}
+                class="inline-flex items-center text-sm font-medium text-primary hover:underline"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 6h10"></path>
+                  <path d="m9 12 5 0"></path>
+                  <path d="M9 18h7"></path>
+                  <path d="M5 6v.01"></path>
+                  <path d="M5 12v.01"></path>
+                  <path d="M5 18v.01"></path>
+                </svg>
+                查看项目相关任务
+              </a>
             </div>
           )}
         </header>
