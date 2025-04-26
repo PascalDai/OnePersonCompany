@@ -1,0 +1,49 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="页面未找到 | One Person Company"
+  description="抱歉，您请求的页面不存在"
+>
+  <section class="py-16 px-4">
+    <div class="container mx-auto text-center">
+      <h1 class="text-5xl font-bold mb-4">404</h1>
+      <h2 class="text-2xl font-medium mb-8">页面未找到</h2>
+      <p class="text-muted-foreground mb-8">
+        抱歉，您访问的页面不存在或已被移除
+      </p>
+
+      <div class="flex flex-col md:flex-row gap-4 justify-center">
+        <a
+          href="/"
+          class="px-6 py-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+        >
+          返回首页
+        </a>
+        <a
+          href="/projects"
+          class="px-6 py-3 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors"
+        >
+          浏览项目
+        </a>
+        <a
+          href="/tasks"
+          class="px-6 py-3 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
+        >
+          查看任务
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  // 检查是否是尝试访问自动生成项目的链接
+  const path = window.location.pathname;
+  if (path.startsWith("/blog/auto-project-")) {
+    const projectId = path.replace("/blog/auto-project-", "");
+    window.location.href = `/auto-project/${projectId}`;
+  }
+</script>
+

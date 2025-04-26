@@ -73,7 +73,6 @@ blogEntries.forEach((entry: CollectionEntry<"blog">) => {
         tasks: [task],
         createdAt: new Date(data.pubDate),
         updatedAt: new Date(data.pubDate),
-        slug: `auto-project-${data.projectId}`, // 为自动创建的项目添加一个默认的 slug
         completionRate: 0,
       });
     }
@@ -133,7 +132,7 @@ function getProgressColorClass(rate: number): string {
                       {project.slug ? (
                         <a href={`/blog/${project.slug}`}>{project.title}</a>
                       ) : (
-                        <a href={`/tasks?project=${project.id}`}>
+                        <a href={`/auto-project/${project.id}`}>
                           {project.title}
                         </a>
                       )}
