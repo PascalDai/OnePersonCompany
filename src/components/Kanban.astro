@@ -141,10 +141,23 @@ blogEntries.forEach((entry: CollectionEntry<"blog">) => {
 // 转换为数组
 const projects = Array.from(projectsMap.values());
 
-console.log(`共提取出 ${projects.length} 个项目`);
-projects.forEach((project, idx) => {
+// 过滤出未完成的项目（不包含已完成的项目）
+const uncompletedProjects = projects.filter(
+  (project) => !project.status || project.status !== "completed"
+);
+
+// 为每个项目过滤出未完成的任务
+uncompletedProjects.forEach((project) => {
+  // 只保留未完成的任务（状态不是 completed 的任务）
+  project.tasks = project.tasks.filter((task) => task.status !== "completed");
+});
+
+console.log(
+  `共提取出 ${projects.length} 个项目，其中 ${uncompletedProjects.length} 个未完成`
+);
+uncompletedProjects.forEach((project, idx) => {
   console.log(
-    `项目 ${idx + 1}/${project.id}: ${project.title} - slug: ${project.slug || "无"} - 共有 ${project.tasks.length} 个任务`
+    `未完成项目 ${idx + 1}/${project.id}: ${project.title} - slug: ${project.slug || "无"} - 共有 ${project.tasks.length} 个未完成任务`
   );
   console.log("项目详细数据:", JSON.stringify(project, null, 2));
   project.tasks.forEach((task) => {
@@ -168,8 +181,8 @@ const statusLabels = {
   completed: "已完成",
 } as const;
 
-// 合并所有任务并添加项目标题
-const allTasks = projects.flatMap(
+// 合并所有未完成项目中的未完成任务并添加项目标题
+const allTasks = uncompletedProjects.flatMap(
   (project) =>
     project.tasks.map((task) => ({
       ...task,
@@ -267,9 +280,9 @@ function getBlogUrl(slug: string) {
     <div class="projects-view">
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {
-          projects.map((project, index) => {
+          uncompletedProjects.map((project, index) => {
             console.log(
-              `渲染项目卡片 #${index + 1}: ${project.title}, slug=${project.slug || "无"}`
+              `渲染未完成项目卡片 #${index + 1}: ${project.title}, slug=${project.slug || "无"}`
             );
             return (
               <Card className="h-full flex flex-col">

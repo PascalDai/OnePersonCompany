@@ -19,6 +19,7 @@ export interface Project {
   createdAt: Date;
   updatedAt: Date;
   slug?: string;
+  status?: string; // 项目状态 'in-progress' | 'completed'
 }
 
 export interface BlogStats {
