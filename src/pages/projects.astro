@@ -11,6 +11,7 @@ import {
 import { Badge } from "../components/ui/badge";
 import { getCollection, type CollectionEntry } from "astro:content";
 import type { Project, Task } from "@/lib/types";
+import { getProjectLink } from "@/lib/project-utils";
 
 // 获取博客文章数据
 const blogEntries = await getCollection("blog");
@@ -79,6 +80,44 @@ blogEntries.forEach((entry: CollectionEntry<"blog">) => {
   }
 });
 
+// 为缺少 slug 的项目寻找关联的博客文章
+blogEntries.forEach((entry: CollectionEntry<"blog">) => {
+  if (entry.data.type === "project") {
+    return; // 已处理过的项目类型文章跳过
+  }
+
+  // 检查这篇文章是否与某个自动创建的项目相关
+  if (entry.data.projectId && projectsMap.has(entry.data.projectId)) {
+    const project = projectsMap.get(entry.data.projectId);
+    if (project && !project.slug) {
+      // 这个项目没有slug，使用这篇文章的主题作为线索
+      const cleanSlug = entry.slug.replace(/^\d{4}-\d{2}-\d{2}-/, "");
+
+      // 只更新缺少 slug 的项目
+      project.slug = `${entry.data.projectId}`;
+    }
+  }
+});
+
+// 再次检查博客文章，查找特定的项目博客文章
+// 对于没有 slug 的项目，查找是否有对应项目ID的博客文章
+const projectIdToSlugMap = new Map<string, string>();
+
+// 首先构建项目ID到slug的映射
+blogEntries.forEach((entry: CollectionEntry<"blog">) => {
+  if (entry.data.type === "project" && entry.data.projectId) {
+    const cleanSlug = entry.slug.replace(/^\d{4}-\d{2}-\d{2}-/, "");
+    projectIdToSlugMap.set(entry.data.projectId, cleanSlug);
+  }
+});
+
+// 更新没有slug的项目
+projectsMap.forEach((project) => {
+  if (!project.slug && projectIdToSlugMap.has(project.id)) {
+    project.slug = projectIdToSlugMap.get(project.id);
+  }
+});
+
 // 计算每个项目的完成率
 projectsMap.forEach((project) => {
   if (project.tasks.length > 0) {
@@ -129,13 +168,7 @@ function getProgressColorClass(rate: number): string {
                 <CardHeader>
                   <div class="flex justify-between items-start">
                     <CardTitle className="text-xl mb-2 hover:text-primary transition-colors">
-                      {project.slug ? (
-                        <a href={`/blog/${project.slug}`}>{project.title}</a>
-                      ) : (
-                        <a href={`/auto-project/${project.id}`}>
-                          {project.title}
-                        </a>
-                      )}
+                      <a href={getProjectLink(project)}>{project.title}</a>
                     </CardTitle>
                     <Badge
                       variant={
