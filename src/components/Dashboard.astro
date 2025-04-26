@@ -402,7 +402,7 @@ const icons = {
                             count,
                           }) => (
                             <div
-                              class={`calendar-day h-14 rounded-md flex items-center justify-center text-xs font-medium ${bgColor} ${selectedStyle} ${isInteractive ? "text-primary-foreground cursor-pointer" : "text-muted-foreground"} transition-all`}
+                              class={`calendar-day h-14 rounded-md flex items-center justify-center text-md font-medium ${bgColor} ${selectedStyle} ${isInteractive ? "text-primary-foreground cursor-pointer" : "text-muted-foreground"} transition-all`}
                               data-date={date}
                               data-count={count}
                               data-selected={
@@ -495,7 +495,11 @@ const icons = {
             <div class="flex items-center justify-between">
               <span class="text-muted-foreground">项目:</span>
               <span class="px-2.5 py-0.5 rounded-md border bg-primary/10 text-xs">
-                ${article.projectTitle || "未知项目"}
+                ${
+                  article.projectId
+                    ? `<a href="/tasks?project=${article.projectId}" class="hover:text-primary transition-colors">${article.projectTitle || "未知项目"}</a>`
+                    : article.projectTitle || "未知项目"
+                }
               </span>
             </div>
             

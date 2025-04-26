@@ -292,7 +292,12 @@ function getBlogUrl(slug: string) {
                   <div class="space-y-4">
                     <div class="flex items-center justify-between text-sm">
                       <span class="text-muted-foreground">任务:</span>
-                      <span class="font-medium">{project.tasks.length}个</span>
+                      <a
+                        href={`/tasks?project=${project.id}`}
+                        class="font-medium hover:text-primary transition-colors"
+                      >
+                        {project.tasks.length}个
+                      </a>
                     </div>
 
                     <div class="space-y-2">
