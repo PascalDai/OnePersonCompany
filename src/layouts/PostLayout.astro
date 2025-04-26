@@ -1,9 +1,22 @@
 ---
 import BlogLayout from "./BlogLayout.astro";
 import { siteConfig } from "../config/site";
+import { getCollection } from "astro:content";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
+import ProjectTasksAccordion from "../components/ProjectTasksAccordion";
+import ProjectInfoCard from "../components/ProjectInfoCard";
+import type { Task } from '@/lib/types';
 
 const { frontmatter } = Astro.props;
-const { title, description, pubDate, author, image, tags, type, projectId } = frontmatter;
+const { title, description, pubDate, author, image, tags, type, projectId, taskId } = frontmatter;
 
 // 格式化日期
 function formatDate(date: string | Date): string {
@@ -19,6 +32,97 @@ const pageTitle = `${title} | ${siteConfig.name}`;
 
 // 检查是否为项目类型
 const isProject = type === 'project';
+// 检查是否为任务类型并且有项目ID
+const isTaskWithProject = type === 'task' && projectId;
+
+// 如果是项目类型，获取所有相关任务
+interface ProjectTask {
+  id: string;
+  title: string;
+  description: string;
+  status: 'todo' | 'in-progress' | 'completed';
+  slug: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+let projectTasks: ProjectTask[] = [];
+if (isProject && projectId) {
+  // 获取所有博客文章
+  const blogEntries = await getCollection("blog");
+  
+  // 查找所有与此项目关联的任务
+  projectTasks = blogEntries
+    .filter(entry => 
+      entry.data.type === 'task' && 
+      entry.data.projectId === projectId
+    )
+    .map(entry => {
+      const cleanSlug = entry.slug.replace(/^\d{4}-\d{2}-\d{2}-/, "");
+      return {
+        id: entry.data.taskId || "",
+        title: entry.data.taskTitle || entry.data.title,
+        description: entry.data.description,
+        status: entry.data.status || "todo",
+        slug: cleanSlug,
+        createdAt: new Date(entry.data.pubDate),
+        updatedAt: new Date(entry.data.pubDate)
+      };
+    });
+    
+  // 按状态排序：进行中 > 待办 > 已完成
+  const statusOrder = {
+    "in-progress": 0,
+    "todo": 1,
+    "completed": 2
+  };
+  
+  projectTasks.sort((a, b) => {
+    // 首先按状态排序
+    const statusDiff = statusOrder[a.status] - statusOrder[b.status];
+    if (statusDiff !== 0) return statusDiff;
+    
+    // 然后按创建时间排序（较早创建的排在前面）
+    return a.createdAt.getTime() - b.createdAt.getTime();
+  });
+}
+
+// 如果是任务类型，获取关联的项目信息
+let projectInfo = null;
+if (isTaskWithProject) {
+  // 获取所有博客文章
+  const blogEntries = await getCollection("blog");
+  
+  // 查找该任务关联的项目
+  const projectEntry = blogEntries.find(entry => 
+    entry.data.type === 'project' && 
+    entry.data.projectId === projectId
+  );
+  
+  if (projectEntry) {
+    const cleanSlug = projectEntry.slug.replace(/^\d{4}-\d{2}-\d{2}-/, "");
+    projectInfo = {
+      id: projectEntry.data.projectId || "",  // 确保id不为undefined
+      title: projectEntry.data.projectTitle || projectEntry.data.title,
+      description: projectEntry.data.description,
+      slug: cleanSlug,
+      status: (projectEntry.data.status as 'in-progress' | 'completed') || "in-progress"
+    };
+  }
+}
+
+// 状态颜色映射
+const statusColors = {
+  "in-progress": "secondary",
+  completed: "success",
+} as const;
+
+// 获取进度颜色类的函数
+function getProgressColorClass(rate: number): string {
+  if (rate < 30) return "bg-red-500";
+  if (rate < 70) return "bg-yellow-500";
+  return "bg-green-500";
+}
 ---
 
 <BlogLayout title={pageTitle} description={description}>
@@ -80,6 +184,16 @@ const isProject = type === 'project';
         <div class="blog-content">
           <slot />
         </div>
+        
+        {/* 如果是项目类型且有相关任务，显示相关任务折叠部分 */}
+        {isProject && projectTasks.length > 0 && (
+          <ProjectTasksAccordion client:load tasks={projectTasks} />
+        )}
+        
+        {/* 如果是任务类型且有项目信息，显示所属项目卡片 */}
+        {isTaskWithProject && projectInfo && (
+          <ProjectInfoCard client:load project={projectInfo} />
+        )}
       </article>
     </div>
   </section>

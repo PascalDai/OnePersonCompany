@@ -59,12 +59,7 @@ export async function getStaticPaths() {
   return paths;
 }
 
-const { entry, prevProject, nextProject } = Astro.props as {
-  entry: CollectionEntry<"blog">;
-  prevProject: { title: string; slug: string } | null;
-  nextProject: { title: string; slug: string } | null;
-};
-
+const { entry, prevProject, nextProject } = Astro.props;
 const { Content } = await entry.render();
 const isProject = entry.data.type === "project";
 ---

@@ -28,10 +28,10 @@ export default function Footer() {
             <h3 className="text-lg font-semibold mb-4">联系方式</h3>
             <ul className="space-y-2">
               <li className="text-muted-foreground">
-                邮箱: {siteConfig.email}
+                邮箱: <a href={`mailto:${siteConfig.email}`} className='text-muted-foreground hover:text-foreground transition-colors'>{siteConfig.email}</a>
               </li>
               <li className="text-muted-foreground">
-                GitHub: {siteConfig.github}
+                GitHub: <a href={siteConfig.github} className='text-muted-foreground hover:text-foreground transition-colors'>{siteConfig.github}</a>
               </li>
             </ul>
           </div>

@@ -28,12 +28,22 @@ interface ExtendedTask extends Task {
 const allTasks: ExtendedTask[] = [];
 
 // 处理博客文章，提取项目和任务信息
+// 第一遍：首先从所有博客文章中提取项目和任务信息
 blogEntries.forEach((entry: CollectionEntry<"blog">) => {
   const { data, slug } = entry;
   const cleanSlug = slug.replace(/^\d{4}-\d{2}-\d{2}-/, ""); // 移除日期前缀
 
+  // 添加调试日志
+  console.log(
+    `处理文章: ${entry.id}, 类型: ${data.type}, projectId: ${data.projectId || "无"}, slug: ${cleanSlug}`
+  );
+
   // 提取项目信息
   if (data.type === "project" && data.projectId) {
+    console.log(
+      `发现项目: ${data.projectTitle || data.title}, ID: ${data.projectId}, slug: ${cleanSlug}`
+    );
+
     if (!projectsMap.has(data.projectId)) {
       projectsMap.set(data.projectId, {
         id: data.projectId,
@@ -44,8 +54,44 @@ blogEntries.forEach((entry: CollectionEntry<"blog">) => {
         updatedAt: new Date(data.pubDate),
         slug: cleanSlug,
       });
+    } else {
+      // 如果项目已存在，确保更新slug
+      const project = projectsMap.get(data.projectId);
+      if (project && !project.slug) {
+        console.log(`更新已有项目 ${data.projectId} 的slug为: ${cleanSlug}`);
+        project.slug = cleanSlug;
+      }
     }
   }
+});
+
+// 第二遍：为所有项目记录slug
+// 创建项目ID到slug的映射
+const projectIdToSlugMap = new Map<string, string>();
+
+// 从项目类型的博客条目中建立映射
+blogEntries.forEach((entry: CollectionEntry<"blog">) => {
+  const { data, slug } = entry;
+
+  if (data.type === "project" && data.projectId) {
+    const cleanSlug = slug.replace(/^\d{4}-\d{2}-\d{2}-/, "");
+    projectIdToSlugMap.set(data.projectId, cleanSlug);
+    console.log(`项目ID ${data.projectId} 映射到slug: ${cleanSlug}`);
+  }
+});
+
+// 确保所有项目都有slug
+projectsMap.forEach((project, id) => {
+  if (!project.slug && projectIdToSlugMap.has(id)) {
+    project.slug = projectIdToSlugMap.get(id);
+    console.log(`更新项目 ${id} 的slug为: ${project.slug}`);
+  }
+});
+
+// 第三遍：处理任务并关联到项目
+blogEntries.forEach((entry: CollectionEntry<"blog">) => {
+  const { data, slug } = entry;
+  const cleanSlug = slug.replace(/^\d{4}-\d{2}-\d{2}-/, "");
 
   // 提取任务信息
   if (data.type === "task" && data.taskId && data.projectId) {
@@ -73,9 +119,20 @@ blogEntries.forEach((entry: CollectionEntry<"blog">) => {
       ? projectsMap.get(data.projectId)?.title || "未知项目"
       : "未知项目";
 
-    const projectSlug = projectsMap.has(data.projectId)
-      ? projectsMap.get(data.projectId)?.slug
-      : undefined;
+    // 获取项目slug - 首先从projectsMap获取，如果没有则从映射表获取
+    let projectSlug = undefined;
+    if (projectsMap.has(data.projectId)) {
+      const project = projectsMap.get(data.projectId);
+      projectSlug = project?.slug;
+    }
+
+    // 如果通过项目映射没找到slug，则尝试从映射表直接获取
+    if (!projectSlug && projectIdToSlugMap.has(data.projectId)) {
+      projectSlug = projectIdToSlugMap.get(data.projectId);
+      console.log(
+        `为任务${data.taskId}从映射表获取projectSlug: ${projectSlug}`
+      );
+    }
 
     // 添加到所有任务列表
     allTasks.push({
@@ -84,6 +141,22 @@ blogEntries.forEach((entry: CollectionEntry<"blog">) => {
       projectSlug,
     });
   }
+});
+
+// 在处理完所有条目后，输出projectsMap内容进行检查
+console.log("项目映射表内容:");
+projectsMap.forEach((project, id) => {
+  console.log(
+    `项目ID: ${id}, 标题: ${project.title}, slug: ${project.slug || "无"}`
+  );
+});
+
+// 输出任务信息
+console.log("任务信息:");
+allTasks.forEach((task) => {
+  console.log(
+    `任务ID: ${task.id}, 标题: ${task.title}, 项目ID: ${task.projectId}, 项目标题: ${task.projectTitle}, 项目slug: ${task.projectSlug || "无"}`
+  );
 });
 
 // 排序：按状态（进行中 > 待办 > 已完成）和创建时间
@@ -132,16 +205,6 @@ const statusColors = {
           <span id="project-filter-text"></span>
           <span id="status-filter-text"></span>
         </p>
-
-        <!-- 添加重置筛选按钮 -->
-        <div class="mt-4">
-          <a
-            href="/tasks"
-            class="px-4 py-2 text-sm bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors"
-          >
-            重置筛选
-          </a>
-        </div>
       </header>
 
       <!-- 筛选区域 -->
@@ -174,6 +237,15 @@ const statusColors = {
               ]}
               currentValue={Astro.url.searchParams.get("status") || ""}
             />
+            <!-- 添加重置筛选按钮 -->
+            <div class="flex items-end">
+              <a
+                href="/tasks"
+                class="px-4 py-2 text-sm bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors"
+              >
+                重置筛选
+              </a>
+            </div>
           </div>
         </div>
       </div>

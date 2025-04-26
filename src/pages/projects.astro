@@ -89,11 +89,11 @@ blogEntries.forEach((entry: CollectionEntry<"blog">) => {
   if (entry.data.projectId && projectsMap.has(entry.data.projectId)) {
     const project = projectsMap.get(entry.data.projectId);
     if (project && !project.slug) {
-      // 这个项目没有slug，使用这篇文章的主题作为线索
+      // 这个项目没有slug，使用这篇文章的slug作为线索
       const cleanSlug = entry.slug.replace(/^\d{4}-\d{2}-\d{2}-/, "");
 
-      // 只更新缺少 slug 的项目
-      project.slug = `${entry.data.projectId}`;
+      // 只更新缺少 slug 的项目，使用清理后的文件名作为slug
+      project.slug = cleanSlug;
     }
   }
 });
