@@ -11,6 +11,7 @@ import {
 import { Badge } from "../components/ui/badge";
 import { getCollection, type CollectionEntry } from "astro:content";
 import type { Project, Task, TaskStatus } from "@/lib/types";
+import TasksSelect from "../components/TasksSelect.astro";
 
 // 获取所有任务和项目数据（在构建时执行）
 const blogEntries = await getCollection("blog");
@@ -148,45 +149,31 @@ const statusColors = {
         <div class="bg-card border rounded-lg p-4 shadow-sm">
           <div class="flex flex-wrap gap-4">
             <!-- 项目筛选 -->
-            <div class="w-full md:w-auto">
-              <label for="project-filter" class="block text-sm font-medium mb-1"
-                >项目</label
-              >
-              <select
-                id="project-filter"
-                class="w-full md:w-64 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                data-current-value=""
-              >
-                <option value="" data-project="">全部项目</option>
-                {
-                  projects.map((project) => (
-                    <option value={project.id} data-project={project.id}>
-                      {project.title}
-                    </option>
-                  ))
-                }
-              </select>
-            </div>
+            <TasksSelect
+              id="project-filter"
+              label="项目"
+              options={[
+                { value: "", label: "全部项目" },
+                ...projects.map((project) => ({
+                  value: project.id,
+                  label: project.title,
+                })),
+              ]}
+              currentValue={Astro.url.searchParams.get("project") || ""}
+            />
 
             <!-- 状态筛选 -->
-            <div class="w-full md:w-auto">
-              <label for="status-filter" class="block text-sm font-medium mb-1"
-                >状态</label
-              >
-              <select
-                id="status-filter"
-                class="w-full md:w-64 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                data-current-value=""
-              >
-                <option value="" data-status="">全部状态</option>
-                <option value="in-progress" data-status="in-progress"
-                  >进行中</option
-                >
-                <option value="todo" data-status="todo">待办</option>
-                <option value="completed" data-status="completed">已完成</option
-                >
-              </select>
-            </div>
+            <TasksSelect
+              id="status-filter"
+              label="状态"
+              options={[
+                { value: "", label: "全部状态" },
+                { value: "in-progress", label: "进行中" },
+                { value: "todo", label: "待办" },
+                { value: "completed", label: "已完成" },
+              ]}
+              currentValue={Astro.url.searchParams.get("status") || ""}
+            />
           </div>
         </div>
       </div>
@@ -295,42 +282,70 @@ const statusColors = {
 
       // 设置筛选器初始值
       if (projectId) {
-        document.getElementById("project-filter").value = projectId;
-        updateProjectFilterText(projectId);
+        const projectSelect = document.getElementById(
+          "project-filter"
+        ) as HTMLSelectElement | null;
+        if (projectSelect) {
+          projectSelect.value = projectId;
+          updateProjectFilterText(projectId);
+        }
       }
 
       if (status) {
-        document.getElementById("status-filter").value = status;
-        updateStatusFilterText(status);
+        const statusSelect = document.getElementById(
+          "status-filter"
+        ) as HTMLSelectElement | null;
+        if (statusSelect) {
+          statusSelect.value = status;
+          updateStatusFilterText(status);
+        }
       }
 
       // 应用筛选
       applyFilters(projectId, status);
 
       // 添加事件监听器
-      document
-        .getElementById("project-filter")
-        .addEventListener("change", function () {
-          const status = document.getElementById("status-filter").value;
-          updateURL(this.value, status);
-        });
+      const projectFilter = document.getElementById(
+        "project-filter"
+      ) as HTMLSelectElement | null;
+      if (projectFilter) {
+        projectFilter.addEventListener(
+          "change",
+          function (this: HTMLSelectElement) {
+            const statusFilter = document.getElementById(
+              "status-filter"
+            ) as HTMLSelectElement | null;
+            const statusValue = statusFilter?.value || "";
+            updateURL(this.value, statusValue);
+          }
+        );
+      }
 
-      document
-        .getElementById("status-filter")
-        .addEventListener("change", function () {
-          const project = document.getElementById("project-filter").value;
-          updateURL(project, this.value);
-        });
+      const statusFilter = document.getElementById(
+        "status-filter"
+      ) as HTMLSelectElement | null;
+      if (statusFilter) {
+        statusFilter.addEventListener(
+          "change",
+          function (this: HTMLSelectElement) {
+            const projectFilter = document.getElementById(
+              "project-filter"
+            ) as HTMLSelectElement | null;
+            const projectValue = projectFilter?.value || "";
+            updateURL(projectValue, this.value);
+          }
+        );
+      }
     }
 
     // 应用筛选条件
-    function applyFilters(projectId, status) {
+    function applyFilters(projectId: string | null, status: string | null) {
       const taskCards = document.querySelectorAll(".task-card");
       let visibleCount = 0;
 
       taskCards.forEach((card) => {
-        const cardProjectId = card.dataset.projectId;
-        const cardStatus = card.dataset.status;
+        const cardProjectId = (card as HTMLElement).dataset.projectId;
+        const cardStatus = (card as HTMLElement).dataset.status;
 
         let shouldShow = true;
 
@@ -343,7 +358,7 @@ const statusColors = {
         }
 
         // 显示或隐藏卡片
-        card.style.display = shouldShow ? "block" : "none";
+        (card as HTMLElement).style.display = shouldShow ? "block" : "none";
 
         if (shouldShow) {
           visibleCount++;
@@ -351,19 +366,24 @@ const statusColors = {
       });
 
       // 更新显示任务数量
-      document.getElementById("visible-tasks-count").textContent = visibleCount;
+      const visibleTasksCount = document.getElementById("visible-tasks-count");
+      if (visibleTasksCount) {
+        visibleTasksCount.textContent = visibleCount.toString();
+      }
 
       // 显示或隐藏"无任务"提示
       const noTasksMessage = document.getElementById("no-tasks-message");
-      if (visibleCount === 0) {
-        noTasksMessage.classList.remove("hidden");
-      } else {
-        noTasksMessage.classList.add("hidden");
+      if (noTasksMessage) {
+        if (visibleCount === 0) {
+          noTasksMessage.classList.remove("hidden");
+        } else {
+          noTasksMessage.classList.add("hidden");
+        }
       }
     }
 
     // 更新URL并重新应用筛选
-    function updateURL(project, status) {
+    function updateURL(project: string, status: string) {
       const url = new URL(window.location.href);
 
       // 清除现有参数
@@ -384,7 +404,7 @@ const statusColors = {
       window.history.pushState({}, "", url.toString());
 
       // 应用新的筛选条件
-      applyFilters(project, status);
+      applyFilters(project || null, status || null);
 
       // 更新筛选器文本
       updateProjectFilterText(project);
@@ -392,15 +412,20 @@ const statusColors = {
     }
 
     // 更新项目筛选文本
-    function updateProjectFilterText(projectId) {
+    function updateProjectFilterText(projectId: string | null) {
       const projectText = document.getElementById("project-filter-text");
+      if (!projectText) return;
 
       if (!projectId) {
         projectText.innerHTML = "";
         return;
       }
 
-      const projectSelect = document.getElementById("project-filter");
+      const projectSelect = document.getElementById(
+        "project-filter"
+      ) as HTMLSelectElement | null;
+      if (!projectSelect) return;
+
       const selectedOption = projectSelect.options[projectSelect.selectedIndex];
       const projectTitle = selectedOption ? selectedOption.textContent : "";
 
@@ -408,15 +433,16 @@ const statusColors = {
     }
 
     // 更新状态筛选文本
-    function updateStatusFilterText(status) {
+    function updateStatusFilterText(status: string | null) {
       const statusText = document.getElementById("status-filter-text");
+      if (!statusText) return;
 
       if (!status) {
         statusText.innerHTML = "";
         return;
       }
 
-      const statusMap = {
+      const statusMap: Record<string, string> = {
         todo: "待办",
         "in-progress": "进行中",
         completed: "已完成",

@@ -1,0 +1,62 @@
+---
+/**
+ * 任务筛选器组件，基于 shadcn UI Select 组件
+ * 用于 tasks.astro 页面中的筛选功能
+ */
+
+interface Props {
+  id: string;
+  label: string;
+  options: { value: string; label: string }[];
+  currentValue?: string;
+  className?: string;
+}
+
+const { id, label, options, currentValue = "", className = "" } = Astro.props;
+---
+
+<div class={`w-full md:w-auto ${className}`}>
+  <label for={id} class="block text-sm font-medium mb-1">{label}</label>
+  <div class="relative w-full md:w-64">
+    <select
+      id={id}
+      class="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+      data-current-value={currentValue}
+    >
+      {
+        options.map((option) => (
+          <option
+            value={option.value}
+            data-status={option.value}
+            selected={option.value === currentValue}
+          >
+            {option.label}
+          </option>
+        ))
+      }
+    </select>
+    <div class="absolute right-3 top-2.5 pointer-events-none opacity-50">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="h-4 w-4"
+      >
+        <path d="m6 9 6 6 6-6"></path>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<style>
+  select {
+    appearance: none; /* 隐藏默认的下拉箭头 */
+  }
+</style>
+
