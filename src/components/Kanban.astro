@@ -67,6 +67,7 @@ blogEntries.forEach((entry: CollectionEntry<"blog">) => {
       `发现项目: ${data.projectTitle || data.title} (ID: ${data.projectId})`
     );
     const projectSlug = cleanSlug;
+    const projectStatus = data.status || "in-progress"; // 默认为进行中
 
     if (!projectsMap.has(data.projectId)) {
       console.log(`创建新项目 ${data.projectId}，设置slug为: ${projectSlug}`);
@@ -75,20 +76,28 @@ blogEntries.forEach((entry: CollectionEntry<"blog">) => {
         id: data.projectId,
         title: data.projectTitle || data.title,
         description: data.description,
+        status: projectStatus, // 设置项目状态
         tasks: [],
         createdAt: new Date(data.pubDate),
         updatedAt: new Date(data.pubDate),
         slug: projectSlug, // 使用清理后的slug
       });
     } else {
-      // 更新现有项目的 slug（如果需要）
+      // 更新现有项目的 slug 和 status（如果需要）
       const existingProject = projectsMap.get(data.projectId);
-      if (existingProject && !existingProject.slug) {
-        console.log(`更新已有项目 ${data.projectId} 的slug为: ${projectSlug}`);
-        existingProject.slug = projectSlug;
-      } else {
+      if (existingProject) {
+        if (!existingProject.slug) {
+          console.log(
+            `更新已有项目 ${data.projectId} 的slug为: ${projectSlug}`
+          );
+          existingProject.slug = projectSlug;
+        }
+
+        // 更新项目状态
+        existingProject.status = projectStatus;
+
         console.log(
-          `项目 ${data.projectId} 已存在且已有slug: ${existingProject?.slug}`
+          `项目 ${data.projectId} 已存在，slug: ${existingProject.slug}, 状态: ${existingProject.status}`
         );
       }
     }
@@ -130,6 +139,7 @@ blogEntries.forEach((entry: CollectionEntry<"blog">) => {
         id: data.projectId,
         title: data.projectTitle || "未知项目",
         description: "自动创建的项目",
+        status: "in-progress", // 由任务创建的项目默认为进行中
         tasks: [task],
         createdAt: new Date(data.pubDate),
         updatedAt: new Date(data.pubDate),
