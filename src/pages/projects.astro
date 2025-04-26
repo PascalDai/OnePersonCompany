@@ -73,6 +73,7 @@ blogEntries.forEach((entry: CollectionEntry<"blog">) => {
         tasks: [task],
         createdAt: new Date(data.pubDate),
         updatedAt: new Date(data.pubDate),
+        slug: `auto-project-${data.projectId}`, // 为自动创建的项目添加一个默认的 slug
         completionRate: 0,
       });
     }
@@ -129,7 +130,13 @@ function getProgressColorClass(rate: number): string {
                 <CardHeader>
                   <div class="flex justify-between items-start">
                     <CardTitle className="text-xl mb-2 hover:text-primary transition-colors">
-                      <a href={`/blog/${project.slug}`}>{project.title}</a>
+                      {project.slug ? (
+                        <a href={`/blog/${project.slug}`}>{project.title}</a>
+                      ) : (
+                        <a href={`/tasks?project=${project.id}`}>
+                          {project.title}
+                        </a>
+                      )}
                     </CardTitle>
                     <Badge
                       variant={
@@ -167,6 +174,15 @@ function getProgressColorClass(rate: number): string {
                     </div>
                   </div>
                 </CardContent>
+
+                <CardFooter className="pt-0 text-xs text-muted-foreground">
+                  <a
+                    href={`/tasks?project=${project.id}`}
+                    class="text-xs hover:text-primary transition-colors"
+                  >
+                    查看所有相关任务
+                  </a>
+                </CardFooter>
               </div>
             </Card>
           ))
