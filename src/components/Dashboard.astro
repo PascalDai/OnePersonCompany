@@ -85,15 +85,43 @@ const projectIds = new Set<string>();
 const taskIds = new Set<string>();
 const completedTaskIds = new Set<string>();
 
+// 首先收集所有未完成项目ID
+const unfinishedProjectIds = new Set<string>();
+// 第一次遍历，只处理项目条目，收集未完成项目ID
 blogEntries.forEach((entry: CollectionEntry<"blog">) => {
   const { data } = entry;
 
   if (data.type === "project" && data.projectId) {
     projectIds.add(data.projectId);
+
+    // 如果项目状态不是completed，则添加到未完成项目集合
+    if (data.status !== "completed") {
+      unfinishedProjectIds.add(data.projectId);
+    }
   }
+});
+
+// 未完成项目中的任务总数
+let unfinishedProjectTaskCount = 0;
+// 未完成项目中已完成的任务数
+let completedUnfinishedProjectTasks = 0;
+
+// 第二次遍历，处理任务条目
+blogEntries.forEach((entry: CollectionEntry<"blog">) => {
+  const { data } = entry;
 
   if (data.type === "task" && data.taskId) {
     taskIds.add(data.taskId);
+
+    // 统计未完成项目中的任务
+    if (data.projectId && unfinishedProjectIds.has(data.projectId)) {
+      unfinishedProjectTaskCount++;
+
+      if (data.status === "completed") {
+        completedUnfinishedProjectTasks++;
+      }
+    }
+
     if (data.status === "completed") {
       completedTaskIds.add(data.taskId);
     }
@@ -112,6 +140,14 @@ const stats: BlogStats = {
   lastPublished:
     blogEntries.length > 0 ? new Date(blogEntries[0].data.pubDate) : null,
 };
+
+// 计算未完成项目中的任务完成率
+const unfinishedProjectsTaskCompletionRate =
+  unfinishedProjectTaskCount > 0
+    ? Math.round(
+        (completedUnfinishedProjectTasks / unfinishedProjectTaskCount) * 100
+      )
+    : 0;
 
 // 计算连续发布天数的函数
 function calculatePublishingStreak(data: DayPublishData[]): number {
@@ -313,20 +349,17 @@ const icons = {
         </CardHeader>
         <CardContent>
           <div class="text-3xl font-bold">
-            {
-              stats.totalTasks
-                ? Math.round((stats.completedTasks / stats.totalTasks) * 100)
-                : 0
-            }%
+            {unfinishedProjectsTaskCompletionRate}%
+          </div>
+          <div class="text-xs text-muted-foreground mt-1">
+            基于未完成项目的任务：{completedUnfinishedProjectTasks}/{
+              unfinishedProjectTaskCount
+            }
           </div>
           <div class="w-full bg-muted h-1.5 rounded-full mt-2 overflow-hidden">
             <div
               class="bg-primary h-full"
-              style={`width: ${
-                stats.totalTasks
-                  ? (stats.completedTasks / stats.totalTasks) * 100
-                  : 0
-              }%`}
+              style={`width: ${unfinishedProjectsTaskCompletionRate}%`}
             >
             </div>
           </div>

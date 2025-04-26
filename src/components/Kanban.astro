@@ -156,12 +156,6 @@ const uncompletedProjects = projects.filter(
   (project) => !project.status || project.status !== "completed"
 );
 
-// 为每个项目过滤出未完成的任务
-uncompletedProjects.forEach((project) => {
-  // 只保留未完成的任务（状态不是 completed 的任务）
-  project.tasks = project.tasks.filter((task) => task.status !== "completed");
-});
-
 console.log(
   `共提取出 ${projects.length} 个项目，其中 ${uncompletedProjects.length} 个未完成`
 );

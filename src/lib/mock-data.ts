@@ -135,6 +135,10 @@ export const getBlogStats = (): BlogStats => {
   const tasks = mockTasks;
   const completedTasks = tasks.filter(task => task.status === 'completed');
   
+  // 过滤未完成的项目
+  const unfinishedProjects = projects.filter(project => project.status !== 'completed');
+  const unfinishedProjectIds = new Set(unfinishedProjects.map(project => project.id));
+  
   // 模拟发布连续天数
   const publishingStreak = 15;
   
