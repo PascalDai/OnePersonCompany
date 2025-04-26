@@ -9,7 +9,7 @@ projectId: p2
 projectTitle: Web3学习笔记
 taskId: t5
 taskTitle: 开发简单的DApp
-status: in-progress
+status: completed
 image: 
   url: https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=2352&auto=format&fit=crop
   alt: 区块链应用开发图片

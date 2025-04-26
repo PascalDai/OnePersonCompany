@@ -6,6 +6,7 @@ pubDate: 2023-12-01
 author: 博主
 type: project
 projectId: p1
+status: in-progress
 projectTitle: Astro博客建设
 image: 
   url: https://images.unsplash.com/photo-1461749280684-dccba630e2f6?q=80&w=2340&auto=format&fit=crop

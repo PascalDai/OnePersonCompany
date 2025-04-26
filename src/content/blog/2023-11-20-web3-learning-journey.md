@@ -5,6 +5,7 @@ description: 本文总结了我的Web3学习笔记项目，包括区块链基础
 pubDate: 2023-11-20
 author: 博主
 type: project
+status: completed
 projectId: p2
 projectTitle: Web3学习笔记
 image: 
