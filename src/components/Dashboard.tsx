@@ -28,6 +28,10 @@ export default function Dashboard() {
   const [calendarData, setCalendarData] = useState<DayPublishData[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [publishDetails, setPublishDetails] = useState<DayPublishDetail | null>(null);
+  const [unfinishedProjectTaskStats, setUnfinishedProjectTaskStats] = useState<{
+    total: number;
+    completed: number;
+  }>({ total: 0, completed: 0 });
 
   useEffect(() => {
     // 获取统计数据
@@ -43,6 +47,31 @@ export default function Dashboard() {
     if (dayWithContent) {
       setSelectedDate(dayWithContent.date);
     }
+    
+    // 计算未完成项目的任务完成率
+    const projects = mockProjects;
+    const tasks = mockTasks;
+    
+    // 过滤未完成的项目
+    const unfinishedProjects = projects.filter(project => project.status !== 'completed');
+    const unfinishedProjectIds = new Set(unfinishedProjects.map(project => project.id));
+    
+    // 统计未完成项目中的任务
+    const unfinishedProjectTasks = tasks.filter(task => 
+      task.projectId && unfinishedProjectIds.has(task.projectId)
+    );
+    
+    // 统计未完成项目中已完成的任务
+    const completedUnfinishedProjectTasks = unfinishedProjectTasks.filter(
+      task => task.status === 'completed'
+    );
+    
+    // 保存到状态中供后续使用
+    setUnfinishedProjectTaskStats({
+      total: unfinishedProjectTasks.length,
+      completed: completedUnfinishedProjectTasks.length
+    });
+    
   }, []);
 
   // 当选择日期变化时，获取该日期的发布详情
@@ -144,8 +173,12 @@ export default function Dashboard() {
 
           <StatCard
             title="已完成任务"
-            value={stats.completedTasks}
-            description={`完成率 ${Math.round((stats.completedTasks / stats.totalTasks) * 100)}%`}
+            value={unfinishedProjectTaskStats.completed}
+            description={`未完成项目任务完成率 ${
+              unfinishedProjectTaskStats.total 
+                ? Math.round((unfinishedProjectTaskStats.completed / unfinishedProjectTaskStats.total) * 100) 
+                : 0
+            }%`}
             icon={
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />

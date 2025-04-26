@@ -9,7 +9,7 @@ projectId: p1
 projectTitle: Astro博客建设
 taskId: t2
 taskTitle: 实现Kanban板
-status: in-progress
+status: completed
 image: 
   url: https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?q=80&w=2340&auto=format&fit=crop
   alt: 看板管理图片
