@@ -1,16 +1,52 @@
 // 监听主题变化并更新Mermaid图表
 document.addEventListener("DOMContentLoaded", () => {
+  // remark-mermaidjs将用到的类名
+  const MERMAID_CLASS = "mermaid";
+
+  // 用于存储每个图表的原始定义
+  const graphDefinitions = new Map();
+
+  // 检查页面上的Mermaid元素是否已经被渲染了
+  function areMermaidDiagramsRendered() {
+    const mermaidDivs = document.querySelectorAll(`.${MERMAID_CLASS}`);
+    if (mermaidDivs.length === 0) return false;
+
+    // 如果任何一个div包含svg，表示已经被渲染过
+    for (const div of mermaidDivs) {
+      if (div.querySelector("svg")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // 保存所有图表的原始定义
+  function saveOriginalDefinitions() {
+    const mermaidDivs = document.querySelectorAll(`.${MERMAID_CLASS}`);
+
+    mermaidDivs.forEach((div, index) => {
+      // 如果还没有保存过此图表的原始定义
+      if (!graphDefinitions.has(div)) {
+        // 保存原始内容
+        graphDefinitions.set(div, div.textContent);
+      }
+    });
+  }
+
   function updateMermaidTheme() {
     const isDark = document.documentElement.classList.contains("dark");
 
-    // 获取所有Mermaid图表容器
-    const mermaidDivs = document.querySelectorAll(".mermaid");
-
+    // 只有在window.mermaid存在且图表已经被渲染后才执行
     if (window.mermaid) {
+      console.log("Mermaid主题更新，当前模式: ", isDark ? "深色" : "浅色");
+
+      // 保存原始定义（如果尚未保存）
+      saveOriginalDefinitions();
+
       // 重新初始化所有图表
       window.mermaid.initialize({
+        startOnLoad: true,
         theme: isDark ? "dark" : "default",
-        // 自定义主题变量，使其与网站主题匹配
         themeVariables: {
           primaryColor: isDark ? "#80CBC4" : "#26A69A",
           primaryTextColor: isDark ? "#E6EDF3" : "#333333",
@@ -18,53 +54,72 @@ document.addEventListener("DOMContentLoaded", () => {
           textColor: isDark ? "#E6EDF3" : "#333333",
           mainBkg: isDark ? "#1E293B" : "#FFFFFF",
           nodeBorder: isDark ? "#3E4C5E" : "#CCCCCC",
+          // 使用网站颜色变量
+          primaryBorderColor: isDark
+            ? "hsl(var(--primary))"
+            : "hsl(var(--primary))",
+          secondaryColor: isDark
+            ? "hsl(var(--secondary))"
+            : "hsl(var(--secondary))",
+          tertiaryColor: isDark ? "hsl(var(--muted))" : "hsl(var(--accent))",
         },
       });
 
-      // 保存原始图表定义并清空容器
-      mermaidDivs.forEach((div, index) => {
-        // 如果还没有保存过原始定义，就保存一下
-        if (!div.getAttribute("data-graph-definition")) {
-          div.setAttribute("data-graph-definition", div.textContent);
-        }
+      // 重新渲染所有图表
+      graphDefinitions.forEach((content, div) => {
+        try {
+          // 清空当前内容
+          div.innerHTML = content;
 
-        // 获取保存的原始定义
-        const graphDefinition = div.getAttribute("data-graph-definition");
-
-        // 只有在有定义的情况下才重新渲染
-        if (graphDefinition) {
-          // 清空容器
-          div.innerHTML = "";
-
-          // 重新渲染
-          try {
-            window.mermaid
-              .render(`mermaid-${Date.now()}-${index}`, graphDefinition)
-              .then((result) => {
-                div.innerHTML = result.svg;
-              })
-              .catch((error) => {
-                console.error("Mermaid渲染失败:", error);
-                div.innerHTML = `<div style="color: red; border: 1px solid red; padding: 10px; margin: 10px 0;">图表渲染错误: ${error.message}</div>`;
-              });
-          } catch (error) {
-            console.error("Mermaid执行异常:", error);
-          }
+          // 通过mermaid API重新渲染
+          // 这将触发mermaid自己的渲染流程
+          window.mermaid.init(undefined, div);
+        } catch (error) {
+          console.error("Mermaid重新渲染失败:", error);
         }
       });
     }
   }
 
-  // 初始运行
-  // 等待页面完全加载和mermaid初始化
-  setTimeout(() => {
-    if (window.mermaid) {
-      updateMermaidTheme();
-    } else {
-      console.warn("Mermaid库未加载，无法应用主题");
-    }
-  }, 1000);
+  // MutationObserver用于检测DOM变化，当Mermaid图表被渲染后立即应用主题
+  const observer = new MutationObserver((mutations) => {
+    // 如果发现Mermaid图表被渲染了，立即更新主题
+    if (areMermaidDiagramsRendered()) {
+      // 停止观察以防止循环
+      observer.disconnect();
 
-  // 监听主题变化
-  document.addEventListener("themeChanged", updateMermaidTheme);
+      // 保存原始定义
+      saveOriginalDefinitions();
+
+      // 应用当前主题
+      updateMermaidTheme();
+
+      // 添加对主题变化的监听
+      document.addEventListener("themeChanged", updateMermaidTheme);
+
+      console.log("Mermaid图表已检测到并应用主题");
+    }
+  });
+
+  // 开始观察文档变化
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+
+  // 如果页面加载时已经有渲染好的Mermaid图表
+  if (areMermaidDiagramsRendered()) {
+    saveOriginalDefinitions();
+    updateMermaidTheme();
+    document.addEventListener("themeChanged", updateMermaidTheme);
+    console.log("页面加载时已存在Mermaid图表，已应用主题");
+  }
+
+  // 如果2秒后还没有检测到图表渲染，清理资源
+  setTimeout(() => {
+    if (!areMermaidDiagramsRendered()) {
+      observer.disconnect();
+      console.log("未检测到Mermaid图表，停止观察");
+    }
+  }, 2000);
 });
