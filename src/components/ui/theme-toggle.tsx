@@ -38,6 +38,9 @@ export function ThemeToggle() {
     } else {
       root.classList.remove('dark');
     }
+    
+    // 分发主题变化事件
+    document.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme: newTheme } }));
   };
 
   return (
