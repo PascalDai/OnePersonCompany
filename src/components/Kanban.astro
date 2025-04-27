@@ -185,6 +185,26 @@ const statusLabels = {
   completed: "已完成",
 } as const;
 
+// 状态优先级排序：进行中 > 未开始 > 已完成
+const statusPriority = {
+  "in-progress": 1,
+  todo: 2,
+  completed: 3,
+};
+
+// 按照新的顺序排列：进行中 > 未开始 > 已完成
+const sortByStatus = (a: Task, b: Task) => {
+  return (
+    (statusPriority[a.status as keyof typeof statusPriority] || 999) -
+    (statusPriority[b.status as keyof typeof statusPriority] || 999)
+  );
+};
+
+// 对每个项目的任务按照优先级进行排序
+for (const project of uncompletedProjects) {
+  project.tasks.sort(sortByStatus);
+}
+
 // 合并所有未完成项目中的未完成任务并添加项目标题
 const allTasks = uncompletedProjects.flatMap(
   (project) =>
@@ -211,12 +231,13 @@ function getBlogUrl(slug: string) {
   // slug应该已经是处理过的，直接使用
   return `/blog/${slug}`;
 }
+
 ---
 
 <section id="kanban" class="min-h-screen pt-20 pb-16">
   <!-- 添加调试信息显示
-  <div class="container mx-auto px-4 mb-8 p-4 bg-muted/30 rounded-lg text-xs">
-    <h3 class="font-bold mb-2">调试信息:</h3>
+  <div className="container mx-auto px-4 mb-8 p-4 bg-muted/30 rounded-lg text-xs">
+    <h3 className="font-bold mb-2">调试信息:</h3>
     <p>找到 {blogEntries.length} 篇博客文章</p>
     <p>提取出 {projects.length} 个项目</p>
     <p>
@@ -289,34 +310,47 @@ function getBlogUrl(slug: string) {
               `渲染未完成项目卡片 #${index + 1}: ${project.title}, slug=${project.slug || "无"}`
             );
             return (
-              <Card className="h-full flex flex-col">
+              <Card className="h-full flex flex-col" id={project.id}>
                 <CardHeader>
-                  {project.slug ? (
-                    <CardTitle>
-                      <a
-                        href={`/blog/${project.slug}`}
-                        class="hover:text-primary transition-colors"
-                      >
-                        {project.title}
-                      </a>
-                    </CardTitle>
-                  ) : (
-                    <CardTitle>{project.title}</CardTitle>
-                  )}
-                  <CardDescription>{project.description}</CardDescription>
+                  <div class="flex justify-between items-start">
+                    <div>
+                      <CardTitle>
+                        {project.slug ? (
+                          <a
+                            href={getBlogUrl(project.slug)}
+                            class="hover:underline text-primary"
+                          >
+                            {project.title}
+                          </a>
+                        ) : (
+                          project.title
+                        )}
+                      </CardTitle>
+                      <CardDescription>{project.description}</CardDescription>
+                    </div>
+                    <Badge
+                      variant={
+                        statusColors[
+                          project.status as keyof typeof statusColors
+                        ] as any
+                      }
+                    >
+                      {
+                        statusLabels[
+                          project.status as keyof typeof statusLabels
+                        ]
+                      }
+                    </Badge>
+                  </div>
                 </CardHeader>
                 <CardContent className="flex-grow">
                   <div class="space-y-4">
                     <div class="flex items-center justify-between text-sm">
                       <span class="text-muted-foreground">任务:</span>
-                      <a
-                        href={`/tasks?project=${project.id}`}
-                        class="font-medium hover:text-primary transition-colors"
-                      >
-                        {project.tasks.length}个
-                      </a>
+                      <span class="font-medium">{project.tasks.length}个</span>
                     </div>
 
+                    <!-- 显示前3个排序后的任务 -->
                     <div class="space-y-2">
                       {project.tasks.slice(0, 3).map((task) => (
                         <div class="flex items-center justify-between p-3 bg-muted/50 rounded-md">
@@ -324,7 +358,7 @@ function getBlogUrl(slug: string) {
                             {task.slug ? (
                               <a
                                 href={getBlogUrl(task.slug)}
-                                class="hover:text-primary transition-colors"
+                                class="hover:underline text-foreground"
                               >
                                 {task.title}
                               </a>
@@ -332,24 +366,82 @@ function getBlogUrl(slug: string) {
                               task.title
                             )}
                           </span>
-                          <Badge variant={statusColors[task.status]}>
-                            {statusLabels[task.status]}
+                          <Badge
+                            variant={
+                              statusColors[
+                                task.status as keyof typeof statusColors
+                              ] as any
+                            }
+                          >
+                            {
+                              statusLabels[
+                                task.status as keyof typeof statusLabels
+                              ]
+                            }
                           </Badge>
                         </div>
                       ))}
-
-                      {project.tasks.length > 3 && (
-                        <div class="text-center text-sm text-muted-foreground mt-2">
-                          +{project.tasks.length - 3}个更多任务
-                        </div>
-                      )}
-
-                      {project.tasks.length === 0 && (
-                        <div class="text-center py-3 text-sm text-muted-foreground">
-                          暂无任务
-                        </div>
-                      )}
                     </div>
+                    
+                    <!-- 使用details/summary收纳更多任务 -->
+                    {project.tasks.length > 3 && (
+                      <div class="accordion-container border-t pt-2 mt-4">
+                        <details class="group">
+                          <summary class="flex justify-center items-center text-sm text-muted-foreground cursor-pointer">
+                            <span>查看全部{project.tasks.length}个任务</span>
+                            <svg 
+                              class="h-4 w-4 ml-1 transition-transform group-open:rotate-180" 
+                              xmlns="http://www.w3.org/2000/svg" 
+                              viewBox="0 0 24 24" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              stroke-width="2" 
+                              stroke-linecap="round" 
+                              stroke-linejoin="round"
+                            >
+                              <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                          </summary>
+                          <div class="space-y-2 pt-2">
+                            {project.tasks.slice(3).map((task) => (
+                              <div class="flex items-center justify-between p-3 bg-muted/50 rounded-md">
+                                <span class="font-medium truncate mr-2">
+                                  {task.slug ? (
+                                    <a 
+                                      href={getBlogUrl(task.slug)} 
+                                      class="hover:underline text-foreground"
+                                    >
+                                      {task.title}
+                                    </a>
+                                  ) : (
+                                    task.title
+                                  )}
+                                </span>
+                                <Badge
+                                  variant={
+                                    statusColors[
+                                      task.status as keyof typeof statusColors
+                                    ] as any
+                                  }
+                                >
+                                  {
+                                    statusLabels[
+                                      task.status as keyof typeof statusLabels
+                                    ]
+                                  }
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      </div>
+                    )}
+
+                    {project.tasks.length === 0 && (
+                      <div class="text-center py-3 text-sm text-muted-foreground">
+                        暂无任务
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -361,192 +453,181 @@ function getBlogUrl(slug: string) {
 
     <div class="tasks-view hidden">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- 待办任务列 -->
-        <div>
-          <div class="flex items-center mb-4">
-            <h3 class="text-lg font-semibold">待办</h3>
-            <Badge variant={statusColors.todo} className="ml-2">
-              {todoTasks.length}
-            </Badge>
-          </div>
-
-          <div class="space-y-3">
-            {
-              todoTasks.map((task: TaskWithProject) => (
-                <Card className="overflow-hidden">
-                  <CardHeader className="p-4 pb-2">
-                    <CardTitle className="text-base">
-                      {task.slug ? (
-                        <a
-                          href={getBlogUrl(task.slug)}
-                          class="hover:text-primary transition-colors"
-                        >
-                          {task.title}
-                        </a>
-                      ) : (
-                        task.title
-                      )}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <p class="text-sm text-muted-foreground mb-2 line-clamp-2">
-                      {task.description}
-                    </p>
-                    <div class="flex items-center justify-between">
-                      <span class="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-full">
-                        {task.projectSlug ? (
-                          <a
-                            href={getBlogUrl(task.projectSlug)}
-                            class="hover:underline"
-                          >
-                            {task.projectTitle}
-                          </a>
-                        ) : (
-                          task.projectTitle
-                        )}
-                      </span>
-                      <span class="text-xs text-muted-foreground">
-                        {new Date(task.updatedAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            }
-
-            {
-              todoTasks.length === 0 && (
-                <div class="text-center p-4 bg-muted/30 rounded-lg text-sm text-muted-foreground">
-                  暂无待办的任务
-                </div>
-              )
-            }
-          </div>
-        </div>
-
-        <!-- 进行中任务列 -->
+        <!-- 按新顺序排列：进行中、待办、已完成 -->
+        <!-- 进行中任务 -->
         <div>
           <div class="flex items-center mb-4">
             <h3 class="text-lg font-semibold">进行中</h3>
-            <Badge variant={statusColors["in-progress"]} className="ml-2">
-              {inProgressTasks.length}
+            <Badge variant={statusColors["in-progress"]}>
+              <span class="ml-2">{inProgressTasks.length}</span>
             </Badge>
           </div>
-
+          
           <div class="space-y-3">
-            {
-              inProgressTasks.map((task: TaskWithProject) => (
-                <Card className="overflow-hidden">
-                  <CardHeader className="p-4 pb-2">
-                    <CardTitle className="text-base">
-                      {task.slug ? (
+            {inProgressTasks.map((task: TaskWithProject) => (
+              <Card className="overflow-hidden">
+                <CardHeader>
+                  <CardTitle>
+                    {task.slug ? (
+                      <a
+                        href={getBlogUrl(task.slug)}
+                        class="hover:underline text-foreground"
+                      >
+                        {task.title}
+                      </a>
+                    ) : (
+                      task.title
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p class="text-sm text-muted-foreground mb-2 line-clamp-2">
+                    {task.description}
+                  </p>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-full">
+                      {task.projectSlug ? (
                         <a
-                          href={getBlogUrl(task.slug)}
-                          class="hover:text-primary transition-colors"
+                          href={getBlogUrl(task.projectSlug)}
+                          class="hover:underline"
                         >
-                          {task.title}
+                          {task.projectTitle}
                         </a>
                       ) : (
-                        task.title
+                        task.projectTitle
                       )}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <p class="text-sm text-muted-foreground mb-2 line-clamp-2">
-                      {task.description}
-                    </p>
-                    <div class="flex items-center justify-between">
-                      <span class="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-full">
-                        {task.projectSlug ? (
-                          <a
-                            href={getBlogUrl(task.projectSlug)}
-                            class="hover:underline"
-                          >
-                            {task.projectTitle}
-                          </a>
-                        ) : (
-                          task.projectTitle
-                        )}
-                      </span>
-                      <span class="text-xs text-muted-foreground">
-                        {new Date(task.updatedAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            }
-
-            {
-              inProgressTasks.length === 0 && (
-                <div class="text-center p-4 bg-muted/30 rounded-lg text-sm text-muted-foreground">
-                  暂无进行中的任务
-                </div>
-              )
-            }
+                    </span>
+                    <span class="text-xs text-muted-foreground">
+                      {new Date(task.updatedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            
+            {inProgressTasks.length === 0 && (
+              <div class="text-center p-4 bg-muted/30 rounded-lg text-sm text-muted-foreground">
+                暂无进行中的任务
+              </div>
+            )}
           </div>
         </div>
 
-        <!-- 已完成任务列 -->
+        <!-- 待办任务 -->
+        <div>
+          <div class="flex items-center mb-4">
+            <h3 class="text-lg font-semibold">待办</h3>
+            <Badge variant={statusColors["todo"]}>
+              <span class="ml-2">{todoTasks.length}</span>
+            </Badge>
+          </div>
+          
+          <div class="space-y-3">
+            {todoTasks.map((task: TaskWithProject) => (
+              <Card className="overflow-hidden">
+                <CardHeader>
+                  <CardTitle>
+                    {task.slug ? (
+                      <a
+                        href={getBlogUrl(task.slug)}
+                        class="hover:underline text-foreground"
+                      >
+                        {task.title}
+                      </a>
+                    ) : (
+                      task.title
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p class="text-sm text-muted-foreground mb-2 line-clamp-2">
+                    {task.description}
+                  </p>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-full">
+                      {task.projectSlug ? (
+                        <a
+                          href={getBlogUrl(task.projectSlug)}
+                          class="hover:underline"
+                        >
+                          {task.projectTitle}
+                        </a>
+                      ) : (
+                        task.projectTitle
+                      )}
+                    </span>
+                    <span class="text-xs text-muted-foreground">
+                      {new Date(task.updatedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            
+            {todoTasks.length === 0 && (
+              <div class="text-center p-4 bg-muted/30 rounded-lg text-sm text-muted-foreground">
+                暂无待办的任务
+              </div>
+            )}
+          </div>
+        </div>
+
+        <!-- 已完成任务 -->
         <div>
           <div class="flex items-center mb-4">
             <h3 class="text-lg font-semibold">已完成</h3>
-            <Badge variant={statusColors.completed} className="ml-2">
-              {completedTasks.length}
+            <Badge variant={statusColors["completed"]}>
+              <span class="ml-2">{completedTasks.length}</span>
             </Badge>
           </div>
-
+          
           <div class="space-y-3">
-            {
-              completedTasks.map((task: TaskWithProject) => (
-                <Card className="overflow-hidden">
-                  <CardHeader className="p-4 pb-2">
-                    <CardTitle className="text-base">
-                      {task.slug ? (
+            {completedTasks.map((task: TaskWithProject) => (
+              <Card className="overflow-hidden">
+                <CardHeader>
+                  <CardTitle>
+                    {task.slug ? (
+                      <a
+                        href={getBlogUrl(task.slug)}
+                        class="hover:underline text-foreground"
+                      >
+                        {task.title}
+                      </a>
+                    ) : (
+                      task.title
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p class="text-sm text-muted-foreground mb-2 line-clamp-2">
+                    {task.description}
+                  </p>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-full">
+                      {task.projectSlug ? (
                         <a
-                          href={getBlogUrl(task.slug)}
-                          class="hover:text-primary transition-colors"
+                          href={getBlogUrl(task.projectSlug)}
+                          class="hover:underline"
                         >
-                          {task.title}
+                          {task.projectTitle}
                         </a>
                       ) : (
-                        task.title
+                        task.projectTitle
                       )}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <p class="text-sm text-muted-foreground mb-2 line-clamp-2">
-                      {task.description}
-                    </p>
-                    <div class="flex items-center justify-between">
-                      <span class="text-xs font-medium bg-primary/10 text-primary px-2 py-1 rounded-full">
-                        {task.projectSlug ? (
-                          <a
-                            href={getBlogUrl(task.projectSlug)}
-                            class="hover:underline"
-                          >
-                            {task.projectTitle}
-                          </a>
-                        ) : (
-                          task.projectTitle
-                        )}
-                      </span>
-                      <span class="text-xs text-muted-foreground">
-                        {new Date(task.updatedAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            }
-
-            {
-              completedTasks.length === 0 && (
-                <div class="text-center p-4 bg-muted/30 rounded-lg text-sm text-muted-foreground">
-                  暂无已完成的任务
-                </div>
-              )
-            }
+                    </span>
+                    <span class="text-xs text-muted-foreground">
+                      {new Date(task.updatedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            
+            {completedTasks.length === 0 && (
+              <div class="text-center p-4 bg-muted/30 rounded-lg text-sm text-muted-foreground">
+                暂无已完成的任务
+              </div>
+            )}
           </div>
         </div>
       </div>

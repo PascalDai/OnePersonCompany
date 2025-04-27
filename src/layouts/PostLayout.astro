@@ -13,17 +13,27 @@ import {
 import { Badge } from "../components/ui/badge";
 import ProjectTasksAccordion from "../components/ProjectTasksAccordion";
 import ProjectInfoCard from "../components/ProjectInfoCard";
-import type { Task } from '@/lib/types';
+import type { Task } from "@/lib/types";
 
 const { frontmatter } = Astro.props;
-const { title, description, pubDate, author, image, tags, type, projectId, taskId } = frontmatter;
+const {
+  title,
+  description,
+  pubDate,
+  author,
+  image,
+  tags,
+  type,
+  projectId,
+  taskId,
+} = frontmatter;
 
 // 格式化日期
 function formatDate(date: string | Date): string {
-  return new Date(date).toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
+  return new Date(date).toLocaleDateString("zh-CN", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
   });
 }
 
@@ -31,16 +41,16 @@ function formatDate(date: string | Date): string {
 const pageTitle = `${title} | ${siteConfig.name}`;
 
 // 检查是否为项目类型
-const isProject = type === 'project';
+const isProject = type === "project";
 // 检查是否为任务类型并且有项目ID
-const isTaskWithProject = type === 'task' && projectId;
+const isTaskWithProject = type === "task" && projectId;
 
 // 如果是项目类型，获取所有相关任务
 interface ProjectTask {
   id: string;
   title: string;
   description: string;
-  status: 'todo' | 'in-progress' | 'completed';
+  status: "todo" | "in-progress" | "completed";
   slug: string;
   createdAt: Date;
   updatedAt: Date;
@@ -50,14 +60,14 @@ let projectTasks: ProjectTask[] = [];
 if (isProject && projectId) {
   // 获取所有博客文章
   const blogEntries = await getCollection("blog");
-  
+
   // 查找所有与此项目关联的任务
   projectTasks = blogEntries
-    .filter(entry => 
-      entry.data.type === 'task' && 
-      entry.data.projectId === projectId
+    .filter(
+      (entry) =>
+        entry.data.type === "task" && entry.data.projectId === projectId
     )
-    .map(entry => {
+    .map((entry) => {
       const cleanSlug = entry.slug.replace(/^\d{4}-\d{2}-\d{2}-/, "");
       return {
         id: entry.data.taskId || "",
@@ -66,22 +76,22 @@ if (isProject && projectId) {
         status: entry.data.status || "todo",
         slug: cleanSlug,
         createdAt: new Date(entry.data.pubDate),
-        updatedAt: new Date(entry.data.pubDate)
+        updatedAt: new Date(entry.data.pubDate),
       };
     });
-    
+
   // 按状态排序：进行中 > 待办 > 已完成
   const statusOrder = {
     "in-progress": 0,
-    "todo": 1,
-    "completed": 2
+    todo: 1,
+    completed: 2,
   };
-  
+
   projectTasks.sort((a, b) => {
     // 首先按状态排序
     const statusDiff = statusOrder[a.status] - statusOrder[b.status];
     if (statusDiff !== 0) return statusDiff;
-    
+
     // 然后按创建时间排序（较早创建的排在前面）
     return a.createdAt.getTime() - b.createdAt.getTime();
   });
@@ -92,21 +102,23 @@ let projectInfo = null;
 if (isTaskWithProject) {
   // 获取所有博客文章
   const blogEntries = await getCollection("blog");
-  
+
   // 查找该任务关联的项目
-  const projectEntry = blogEntries.find(entry => 
-    entry.data.type === 'project' && 
-    entry.data.projectId === projectId
+  const projectEntry = blogEntries.find(
+    (entry) =>
+      entry.data.type === "project" && entry.data.projectId === projectId
   );
-  
+
   if (projectEntry) {
     const cleanSlug = projectEntry.slug.replace(/^\d{4}-\d{2}-\d{2}-/, "");
     projectInfo = {
-      id: projectEntry.data.projectId || "",  // 确保id不为undefined
+      id: projectEntry.data.projectId || "", // 确保id不为undefined
       title: projectEntry.data.projectTitle || projectEntry.data.title,
       description: projectEntry.data.description,
       slug: cleanSlug,
-      status: (projectEntry.data.status as 'in-progress' | 'completed') || "in-progress"
+      status:
+        (projectEntry.data.status as "in-progress" | "completed") ||
+        "in-progress",
     };
   }
 }
@@ -132,68 +144,95 @@ function getProgressColorClass(rate: number): string {
         <header class="mb-8">
           <div class="flex items-center text-sm text-muted-foreground mb-2">
             <time datetime={pubDate}>{formatDate(pubDate)}</time>
-            {author && (
-              <span class="mx-2">•</span>
-              <span>{author}</span>
-            )}
+            {
+              author && (
+                <>
+                  <span class="mx-2">•</span>
+                  <span>{author}</span>
+                </>
+              )
+            }
           </div>
           <h1 class="text-4xl font-bold mb-4">{title}</h1>
-          {description && <p class="text-xl text-muted-foreground">{description}</p>}
-          
-          {tags && tags.length > 0 && (
-            <div class="flex flex-wrap gap-2 mt-4">
-              {tags.map((tag: string) => (
-                <span class="bg-muted px-2 py-1 text-xs rounded-md">
-                  #{tag}
-                </span>
-              ))}
-            </div>
-          )}
-          
+          {
+            description && (
+              <p class="text-xl text-muted-foreground">{description}</p>
+            )
+          }
+
+          {
+            tags && tags.length > 0 && (
+              <div class="flex flex-wrap gap-2 mt-4">
+                {tags.map((tag: string) => (
+                  <span class="bg-muted px-2 py-1 text-xs rounded-md">
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            )
+          }
+
           {/* 如果是项目类型，添加查看任务的链接 */}
-          {isProject && projectId && (
-            <div class="mt-4">
-              <a 
-                href={`/tasks?project=${projectId}`}
-                class="inline-flex items-center text-sm font-medium text-primary hover:underline"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M9 6h10"></path>
-                  <path d="m9 12 5 0"></path>
-                  <path d="M9 18h7"></path>
-                  <path d="M5 6v.01"></path>
-                  <path d="M5 12v.01"></path>
-                  <path d="M5 18v.01"></path>
-                </svg>
-                查看项目相关任务
-              </a>
-            </div>
-          )}
+          {
+            isProject && projectId && (
+              <div class="mt-4">
+                <a
+                  href={`/tasks?project=${projectId}`}
+                  class="inline-flex items-center text-sm font-medium text-primary hover:underline"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-4 w-4 mr-1"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M9 6h10" />
+                    <path d="m9 12 5 0" />
+                    <path d="M9 18h7" />
+                    <path d="M5 6v.01" />
+                    <path d="M5 12v.01" />
+                    <path d="M5 18v.01" />
+                  </svg>
+                  查看项目相关任务
+                </a>
+              </div>
+            )
+          }
         </header>
-        
-        {image && image.url && (
-          <div class="mb-8">
-            <img
-              src={image.url}
-              alt={image.alt || title}
-              class="w-full h-auto rounded-lg"
-            />
-          </div>
-        )}
-        
+
+        {
+          image && image.url && (
+            <div class="mb-8">
+              <img
+                src={image.url}
+                alt={image.alt || title}
+                class="w-full h-auto rounded-lg"
+              />
+            </div>
+          )
+        }
+
         <div class="blog-content">
           <slot />
         </div>
-        
+
         {/* 如果是项目类型且有相关任务，显示相关任务折叠部分 */}
-        {isProject && projectTasks.length > 0 && (
-          <ProjectTasksAccordion client:load tasks={projectTasks} />
-        )}
-        
+        {
+          isProject && projectTasks.length > 0 && (
+            <ProjectTasksAccordion client:load tasks={projectTasks} />
+          )
+        }
+
         {/* 如果是任务类型且有项目信息，显示所属项目卡片 */}
-        {isTaskWithProject && projectInfo && (
-          <ProjectInfoCard client:load project={projectInfo} />
-        )}
+        {
+          isTaskWithProject && projectInfo && (
+            <ProjectInfoCard client:load project={projectInfo} />
+          )
+        }
       </article>
     </div>
   </section>
@@ -206,28 +245,29 @@ function getProgressColorClass(rate: number): string {
     font-size: 1.5rem;
     font-weight: 700;
   }
-  
+
   .blog-content :global(h3) {
     margin-top: 1.5rem;
     margin-bottom: 0.75rem;
     font-size: 1.25rem;
     font-weight: 600;
   }
-  
+
   .blog-content :global(p) {
     margin-bottom: 1.25rem;
     line-height: 1.7;
   }
-  
-  .blog-content :global(ul), .blog-content :global(ol) {
+
+  .blog-content :global(ul),
+  .blog-content :global(ol) {
     margin-bottom: 1.25rem;
     padding-left: 1.5rem;
   }
-  
+
   .blog-content :global(li) {
     margin-bottom: 0.5rem;
   }
-  
+
   .blog-content :global(pre) {
     background-color: hsl(var(--muted));
     padding: 1rem;
@@ -235,27 +275,28 @@ function getProgressColorClass(rate: number): string {
     overflow-x: auto;
     margin-bottom: 1.5rem;
   }
-  
+
   .blog-content :global(code) {
     font-family: monospace;
     font-size: 0.9em;
   }
-  
+
   .blog-content :global(blockquote) {
     border-left: 4px solid hsl(var(--primary));
     padding-left: 1rem;
     font-style: italic;
     margin: 1.5rem 0;
   }
-  
+
   .blog-content :global(hr) {
     margin: 2rem 0;
     border: 0;
     border-top: 1px solid hsl(var(--border));
   }
-  
+
   .blog-content :global(a) {
     color: hsl(var(--primary));
     text-decoration: underline;
   }
-</style> 
+</style>
+
