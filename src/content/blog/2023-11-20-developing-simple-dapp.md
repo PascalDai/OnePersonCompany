@@ -1,5 +1,4 @@
 ---
-layout: ../../layouts/PostLayout.astro
 title: 开发简单的去中心化应用(DApp)：Web3入门实践
 description: 本文记录了开发一个简单的DApp的全过程，包括智能合约开发和前端集成
 pubDate: 2023-11-20

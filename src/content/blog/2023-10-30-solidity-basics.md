@@ -1,5 +1,4 @@
 ---
-layout: ../../layouts/PostLayout.astro
 title: Solidity基础：智能合约开发入门
 description: 本文总结了Solidity语言的基础语法和智能合约开发的关键概念，为区块链开发打下基础
 pubDate: 2025-03-30

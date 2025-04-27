@@ -123,7 +123,6 @@ async function createProject() {
 
     // 构建frontmatter数据
     const frontmatterData = {
-      layout: "../../layouts/PostLayout.astro",
       title: answers.title,
       description: answers.description,
       pubDate: new Date().toISOString().split("T")[0],
@@ -297,7 +296,6 @@ async function createTask() {
 
     // 构建frontmatter数据
     const frontmatterData = {
-      layout: "../../layouts/PostLayout.astro",
       title: answers.title,
       description: answers.description,
       pubDate: new Date().toISOString().split("T")[0],

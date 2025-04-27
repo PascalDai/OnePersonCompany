@@ -1,5 +1,4 @@
 ---
-layout: ../../layouts/PostLayout.astro
 title: Web3学习之旅：区块链与去中心化应用探索
 description: 本文总结了我的Web3学习笔记项目，包括区块链基础、智能合约开发和DApp构建的探索历程
 pubDate: 2023-11-20

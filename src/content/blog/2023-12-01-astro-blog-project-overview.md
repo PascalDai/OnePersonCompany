@@ -1,5 +1,4 @@
 ---
-layout: ../../layouts/PostLayout.astro
 title: Astro博客建设：构建个人知识管理系统
 description: 本文介绍了使用Astro框架构建现代化博客网站的整体规划和实现过程
 pubDate: 2023-12-01

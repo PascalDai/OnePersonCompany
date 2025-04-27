@@ -1,6 +1,7 @@
 ---
 import { getCollection, type CollectionEntry } from "astro:content";
 import PostLayout from "../../layouts/PostLayout.astro";
+import { siteConfig } from "../../config/site";
 
 export async function getStaticPaths() {
   const blogEntries = await getCollection("blog");
@@ -62,6 +63,10 @@ export async function getStaticPaths() {
 const { entry, prevProject, nextProject } = Astro.props;
 const { Content } = await entry.render();
 const isProject = entry.data.type === "project";
+
+// 设置页面标题和描述
+const { title, description } = entry.data;
+const pageTitle = `${title} | ${siteConfig.name}`;
 ---
 
 <PostLayout frontmatter={entry.data}>
