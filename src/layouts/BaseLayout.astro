@@ -29,6 +29,7 @@ const {
     <title>{title}</title>
     <!-- 初始化主题脚本，防止闪烁 -->
     <script is:inline>
+      // 主题初始化
       const theme = (() => {
         if (
           typeof localStorage !== "undefined" &&
@@ -47,11 +48,730 @@ const {
       } else {
         document.documentElement.classList.remove("dark");
       }
+
+      // 创建一个全局对象来缓存mermaid代码，用于主题切换时重新渲染
+      window.mermaidCodeCache = {};
+
+      // 为Mermaid配置初始主题
+      document.addEventListener("DOMContentLoaded", function () {
+        // 加载mermaid并配置
+        loadMermaid();
+
+        // 设置主题切换处理函数
+        setupThemeToggle();
+
+        // 初始加载时处理mermaid图表
+        const currentTheme = document.documentElement.classList.contains("dark")
+          ? "dark"
+          : "light";
+        handleMermaidSVGs(currentTheme);
+
+        // 监听DOM变化，处理动态添加的图表
+        setupMutationObserver();
+      });
+
+      // 设置DOM变化监听器，自动处理新添加的图表
+      function setupMutationObserver() {
+        if (!window.MutationObserver) return;
+
+        const observer = new MutationObserver(function (mutations) {
+          let needsUpdate = false;
+
+          mutations.forEach(function (mutation) {
+            if (mutation.type === "childList") {
+              mutation.addedNodes.forEach(function (node) {
+                if (node.nodeType === 1) {
+                  // 元素节点
+                  // 检查是否添加了新的mermaid图表
+                  if (
+                    node.tagName === "SVG" &&
+                    (node.id || "").startsWith("mermaid-")
+                  ) {
+                    needsUpdate = true;
+                  } else if (
+                    node.querySelector &&
+                    node.querySelector('svg[id^="mermaid-"]')
+                  ) {
+                    needsUpdate = true;
+                  }
+                }
+              });
+            }
+          });
+
+          if (needsUpdate) {
+            const currentTheme = document.documentElement.classList.contains(
+              "dark"
+            )
+              ? "dark"
+              : "light";
+            handleMermaidSVGs(currentTheme);
+          }
+        });
+
+        // 监听整个文档的变化
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+        });
+      }
+
+      // 加载Mermaid库
+      function loadMermaid() {
+        // 如果已经加载过，就不再重复加载
+        if (window.mermaid) return;
+
+        const script = document.createElement("script");
+        script.src =
+          "https://cdn.jsdelivr.net/npm/mermaid@11.6.0/dist/mermaid.min.js";
+        script.onload = function () {
+          if (window.mermaid) {
+            // 配置mermaid
+            const isDark = document.documentElement.classList.contains("dark");
+            window.mermaid.initialize({
+              startOnLoad: false, // 改为手动初始化
+              theme: isDark ? "dark" : "default",
+              securityLevel: "loose",
+              fontFamily:
+                '"Trebuchet MS", "Lucida Sans Unicode", "Lucida Grande", "Lucida Sans", Arial, sans-serif',
+              themeVariables: isDark
+                ? {
+                    primaryColor: "#2d3e50",
+                    primaryTextColor: "#f8f8f2",
+                    primaryBorderColor: "#4e687e",
+                    lineColor: "#a9b8c6",
+                    secondaryColor: "#383a4a",
+                    tertiaryColor: "#2c2c38",
+                  }
+                : {
+                    primaryColor: "#e0f5ee",
+                    primaryTextColor: "#1f2937",
+                    primaryBorderColor: "#93c5fd",
+                    lineColor: "#3b82f6",
+                    secondaryColor: "#f0f9ff",
+                    tertiaryColor: "#f0fdfa",
+                  },
+            });
+
+            // 初始化mermaid图表
+            initializeMermaidDiagrams();
+          }
+        };
+        document.head.appendChild(script);
+      }
+
+      // 初始化mermaid图表
+      function initializeMermaidDiagrams() {
+        // 查找markdown中生成的mermaid代码块
+        const codeBlocks = document.querySelectorAll(
+          "pre > code.language-mermaid, code.language-mermaid"
+        );
+
+        // 处理每个mermaid代码块
+        if (codeBlocks.length > 0) {
+          console.log("找到", codeBlocks.length, "个mermaid代码块");
+
+          codeBlocks.forEach((codeBlock, index) => {
+            const pre = codeBlock.parentElement;
+            if (!pre) return;
+
+            // 获取mermaid代码
+            const mermaidCode = codeBlock.textContent || "";
+            const diagramId = `mermaid-diagram-${index}`;
+
+            // 缓存mermaid代码
+            window.mermaidCodeCache = window.mermaidCodeCache || {};
+            window.mermaidCodeCache[diagramId] = mermaidCode;
+
+            // 创建新的div用于渲染
+            const mermaidDiv = document.createElement("div");
+            mermaidDiv.className = "mermaid";
+            mermaidDiv.id = diagramId;
+            mermaidDiv.textContent = mermaidCode;
+            mermaidDiv.setAttribute("data-source", "code-block");
+
+            // 替换pre元素或code元素
+            if (pre.tagName.toLowerCase() === "pre") {
+              pre.parentNode?.replaceChild(mermaidDiv, pre);
+            } else {
+              codeBlock.parentNode?.replaceChild(mermaidDiv, codeBlock);
+            }
+          });
+        }
+
+        // 渲染所有新创建的mermaid div
+        try {
+          if (document.querySelectorAll("div.mermaid").length > 0) {
+            window.mermaid.run();
+            console.log("成功渲染mermaid图表");
+          }
+
+          // 处理已渲染的图表主题
+          const currentTheme = document.documentElement.classList.contains(
+            "dark"
+          )
+            ? "dark"
+            : "light";
+          handleMermaidSVGs(currentTheme);
+        } catch (error) {
+          console.error("渲染mermaid图表出错:", error);
+        }
+      }
+
+      // 设置主题切换处理
+      function setupThemeToggle() {
+        // 监听主题切换按钮的点击
+        document.addEventListener("click", function (e) {
+          // 判断是否点击了主题切换按钮
+          const target = e.target.closest("[data-theme-toggle]");
+          if (!target) return;
+
+          // 切换主题
+          const isDark = document.documentElement.classList.contains("dark");
+          const newTheme = isDark ? "light" : "dark";
+
+          if (isDark) {
+            document.documentElement.classList.remove("dark");
+            localStorage.setItem("theme", "light");
+          } else {
+            document.documentElement.classList.add("dark");
+            localStorage.setItem("theme", "dark");
+          }
+
+          console.log("主题已切换为", newTheme, "，准备更新mermaid图表");
+
+          // 处理所有mermaid图表的主题
+          handleMermaidSVGs(newTheme);
+
+          // 如果mermaid已加载，更新配置
+          if (window.mermaid) {
+            // 更新mermaid配置
+            window.mermaid.initialize({
+              startOnLoad: false,
+              theme: newTheme === "dark" ? "dark" : "default",
+              securityLevel: "loose",
+              fontFamily:
+                '"Trebuchet MS", "Lucida Sans Unicode", "Lucida Grande", "Lucida Sans", Arial, sans-serif',
+              themeVariables:
+                newTheme === "dark"
+                  ? {
+                      primaryColor: "#2d3e50",
+                      primaryTextColor: "#f8f8f2",
+                      primaryBorderColor: "#4e687e",
+                      lineColor: "#a9b8c6",
+                      secondaryColor: "#383a4a",
+                      tertiaryColor: "#2c2c38",
+                    }
+                  : {
+                      primaryColor: "#e0f5ee",
+                      primaryTextColor: "#1f2937",
+                      primaryBorderColor: "#93c5fd",
+                      lineColor: "#3b82f6",
+                      secondaryColor: "#f0f9ff",
+                      tertiaryColor: "#f0fdfa",
+                    },
+            });
+          }
+        });
+      }
+
+      // 处理所有mermaid SVG图表
+      function handleMermaidSVGs(currentTheme) {
+        // 查找所有ID以mermaid-开头的SVG图表
+        const mermaidSVGs = Array.from(
+          document.querySelectorAll("svg[id^='mermaid-']")
+        );
+
+        if (mermaidSVGs.length === 0) return;
+
+        console.log("找到", mermaidSVGs.length, "个mermaid图表");
+
+        mermaidSVGs.forEach((svg) => {
+          // 如果这个SVG已经处理过并且主题匹配，则跳过
+          if (svg.getAttribute("data-theme") === currentTheme) {
+            return;
+          }
+
+          // 记录SVG的当前样式状态
+          if (
+            !svg.hasAttribute("data-original-style") &&
+            svg.hasAttribute("style")
+          ) {
+            svg.setAttribute(
+              "data-original-style",
+              svg.getAttribute("style") || ""
+            );
+          }
+
+          // 获取图表类型
+          const diagramType = svg.getAttribute("aria-roledescription") || "";
+          console.log("处理图表:", svg.id, "类型:", diagramType);
+
+          // 为SVG设置基于主题的样式
+          if (currentTheme === "dark") {
+            // 深色主题样式
+            applyDarkThemeToSVG(svg, diagramType);
+          } else {
+            // 浅色主题样式
+            applyLightThemeToSVG(svg, diagramType);
+          }
+
+          // 标记为当前主题
+          svg.setAttribute("data-theme", currentTheme);
+        });
+      }
+
+      // 应用深色主题到SVG
+      function applyDarkThemeToSVG(svg, diagramType) {
+        // 基于图表类型应用不同的样式
+        switch (diagramType) {
+          case "flowchart-v2":
+            applyDarkStyleToFlowchart(svg);
+            break;
+          case "sequence":
+            applyDarkStyleToSequence(svg);
+            break;
+          case "pie":
+            applyDarkStyleToPieChart(svg);
+            break;
+          default:
+            // 通用样式处理
+            applyDarkGenericStyles(svg);
+            break;
+        }
+
+        // 更新SVG的样式表
+        updateSVGStyle(svg, "dark");
+      }
+
+      // 应用浅色主题到SVG
+      function applyLightThemeToSVG(svg, diagramType) {
+        // 如果有保存的原始样式，恢复它
+        if (svg.hasAttribute("data-original-style")) {
+          svg.setAttribute("style", svg.getAttribute("data-original-style"));
+        }
+
+        // 基于图表类型应用不同的样式
+        switch (diagramType) {
+          case "flowchart-v2":
+            applyLightStyleToFlowchart(svg);
+            break;
+          case "sequence":
+            applyLightStyleToSequence(svg);
+            break;
+          case "pie":
+            applyLightStyleToPieChart(svg);
+            break;
+          default:
+            // 通用样式处理
+            applyLightGenericStyles(svg);
+            break;
+        }
+
+        // 更新SVG的样式表
+        updateSVGStyle(svg, "light");
+      }
+
+      // 更新SVG的样式表
+      function updateSVGStyle(svg, theme) {
+        const styleElement = svg.querySelector("style");
+        if (!styleElement) return;
+
+        let styleContent = styleElement.textContent || "";
+
+        if (theme === "dark") {
+          // 替换颜色为深色主题
+          styleContent = styleContent
+            .replace(/fill:#333/g, "fill:#f8f8f2")
+            .replace(/stroke:#333/g, "stroke:#a9b8c6")
+            .replace(/fill:#ECECFF/g, "fill:#383a4a")
+            .replace(/stroke:#9370DB/g, "stroke:#4e687e")
+            .replace(/fill:#ffffde/g, "fill:#2c2c38")
+            .replace(/stroke:#aaaa33/g, "stroke:#4e687e")
+            .replace(
+              /fill:hsl\(259.6261682243, 59.7765363128%, 87.9019607843%\)/g,
+              "fill:#383a4a"
+            )
+            .replace(
+              /stroke:hsl\(259.6261682243, 59.7765363128%, 87.9019607843%\)/g,
+              "stroke:#4e687e"
+            )
+            .replace(/fill:white/g, "fill:#f8f8f2")
+            .replace(/fill:#f4f4f4/g, "fill:#4e687e")
+            .replace(/stroke:#666/g, "stroke:#a9b8c6")
+            .replace(/stroke:#999/g, "stroke:#a9b8c6")
+            .replace(
+              /fill:rgba\(232,232,232, 0.8\)/g,
+              "fill:rgba(45, 62, 80, 0.8)"
+            )
+            .replace(
+              /background-color:rgba\(232,232,232, 0.8\)/g,
+              "background-color:rgba(45, 62, 80, 0.8)"
+            )
+            .replace(
+              /background-color:rgba\(232, 232, 232, 0.5\)/g,
+              "background-color:rgba(45, 62, 80, 0.5)"
+            );
+
+          // 特别修复饼图的样式
+          if (svg.getAttribute("aria-roledescription") === "pie") {
+            // 饼图文本应显示为白色
+            styleContent = styleContent.replace(/fill:black/g, "fill:#f8f8f2");
+          }
+        } else {
+          // 恢复为浅色主题的默认颜色
+          styleContent = styleContent
+            .replace(/fill:#f8f8f2/g, "fill:#333")
+            .replace(/stroke:#a9b8c6/g, "stroke:#333")
+            .replace(/fill:#383a4a/g, "fill:#ECECFF")
+            .replace(/stroke:#4e687e/g, "stroke:#9370DB")
+            .replace(/fill:#2c2c38/g, "fill:#ffffde")
+            .replace(/stroke:#4e687e/g, "stroke:#aaaa33")
+            .replace(
+              /fill:rgba\(45, 62, 80, 0.8\)/g,
+              "fill:rgba(232,232,232, 0.8)"
+            )
+            .replace(
+              /background-color:rgba\(45, 62, 80, 0.8\)/g,
+              "background-color:rgba(232,232,232, 0.8)"
+            )
+            .replace(
+              /background-color:rgba\(45, 62, 80, 0.5\)/g,
+              "background-color:rgba(232, 232, 232, 0.5)"
+            );
+        }
+
+        styleElement.textContent = styleContent;
+      }
+
+      // 应用深色主题到流程图
+      function applyDarkStyleToFlowchart(svg) {
+        applyDarkStyleToElements(svg, "g.label", {
+          fill: "#f8f8f2",
+          color: "#f8f8f2",
+        });
+
+        applyDarkStyleToElements(
+          svg,
+          "g.node rect, g.node circle, g.node ellipse, g.node polygon, g.node path",
+          {
+            fill: "#383a4a",
+            stroke: "#a9b8c6",
+          }
+        );
+
+        applyDarkStyleToElements(svg, "g.edgePaths path", {
+          stroke: "#a9b8c6",
+        });
+
+        applyDarkStyleToElements(svg, ".edgeLabel rect", {
+          fill: "#2d3e50",
+          opacity: 0.8,
+        });
+
+        applyDarkStyleToElements(svg, ".edgeLabel", {
+          color: "#f8f8f2",
+          background: "#2d3e50",
+        });
+
+        applyDarkStyleToElements(svg, ".nodeLabel", {
+          fill: "#f8f8f2",
+          color: "#f8f8f2",
+        });
+
+        // 设置其他元素颜色
+        applyDarkStyleToElements(svg, ".marker", {
+          fill: "#a9b8c6",
+          stroke: "#a9b8c6",
+        });
+
+        applyDarkStyleToElements(svg, ".flowchart-link", {
+          stroke: "#a9b8c6",
+        });
+      }
+
+      // 应用浅色主题到流程图
+      function applyLightStyleToFlowchart(svg) {
+        applyLightStyleToElements(svg, "g.label", {
+          fill: "#333",
+          color: "#333",
+        });
+
+        applyLightStyleToElements(
+          svg,
+          "g.node rect, g.node circle, g.node ellipse, g.node polygon, g.node path",
+          {
+            fill: "#ECECFF",
+            stroke: "#9370DB",
+          }
+        );
+
+        applyLightStyleToElements(svg, "g.edgePaths path", {
+          stroke: "#333333",
+        });
+
+        applyLightStyleToElements(svg, ".edgeLabel rect", {
+          fill: "#e0f5ee",
+          opacity: 0.8,
+        });
+
+        applyLightStyleToElements(svg, ".edgeLabel", {
+          color: "#333",
+          background: "#e0f5ee",
+        });
+
+        applyLightStyleToElements(svg, ".nodeLabel", {
+          fill: "#333",
+          color: "#333",
+        });
+
+        // 设置其他元素颜色
+        applyLightStyleToElements(svg, ".marker", {
+          fill: "#333333",
+          stroke: "#333333",
+        });
+
+        applyLightStyleToElements(svg, ".flowchart-link", {
+          stroke: "#333333",
+        });
+      }
+
+      // 应用深色主题到序列图
+      function applyDarkStyleToSequence(svg) {
+        // 背景和文字颜色
+        applyDarkStyleToElements(svg, "text", {
+          fill: "#f8f8f2",
+        });
+
+        // 参与者盒子
+        applyDarkStyleToElements(svg, "rect.actor", {
+          fill: "#383a4a",
+          stroke: "#a9b8c6",
+        });
+
+        // 参与者线条
+        applyDarkStyleToElements(svg, "line.actor-line", {
+          stroke: "#a9b8c6",
+        });
+
+        // 消息线条
+        applyDarkStyleToElements(svg, ".messageLine0, .messageLine1", {
+          stroke: "#a9b8c6",
+        });
+
+        // 箭头
+        applyDarkStyleToElements(svg, "#arrowhead path", {
+          fill: "#a9b8c6",
+          stroke: "#a9b8c6",
+        });
+
+        // 消息文本
+        applyDarkStyleToElements(svg, ".messageText", {
+          fill: "#f8f8f2",
+          stroke: "none",
+        });
+
+        // 生命线和激活条
+        applyDarkStyleToElements(
+          svg,
+          ".activation0, .activation1, .activation2",
+          {
+            fill: "#4e687e",
+            stroke: "#a9b8c6",
+          }
+        );
+      }
+
+      // 应用浅色主题到序列图
+      function applyLightStyleToSequence(svg) {
+        // 背景和文字颜色
+        applyLightStyleToElements(svg, "text", {
+          fill: "#333",
+        });
+
+        // 参与者盒子
+        applyLightStyleToElements(svg, "rect.actor", {
+          fill: "#ECECFF",
+          stroke: "#666",
+        });
+
+        // 参与者线条
+        applyLightStyleToElements(svg, "line.actor-line", {
+          stroke: "#999",
+        });
+
+        // 消息线条
+        applyLightStyleToElements(svg, ".messageLine0, .messageLine1", {
+          stroke: "#333",
+        });
+
+        // 箭头
+        applyLightStyleToElements(svg, "#arrowhead path", {
+          fill: "#333",
+          stroke: "#333",
+        });
+
+        // 消息文本
+        applyLightStyleToElements(svg, ".messageText", {
+          fill: "#333",
+          stroke: "none",
+        });
+
+        // 生命线和激活条
+        applyLightStyleToElements(
+          svg,
+          ".activation0, .activation1, .activation2",
+          {
+            fill: "#f4f4f4",
+            stroke: "#666",
+          }
+        );
+      }
+
+      // 应用深色主题到饼图
+      function applyDarkStyleToPieChart(svg) {
+        // 标题和文字
+        applyDarkStyleToElements(svg, "text", {
+          fill: "#f8f8f2",
+        });
+
+        // 饼图各部分的文字标签
+        applyDarkStyleToElements(svg, "g.slice text", {
+          fill: "#f8f8f2",
+        });
+
+        // 图例文字
+        applyDarkStyleToElements(svg, "g.legend text", {
+          fill: "#f8f8f2",
+        });
+
+        // 这里我们不改变饼图的各个部分颜色，因为它们通常使用特定颜色区分不同部分
+        // 但可以调整边框颜色
+        applyDarkStyleToElements(svg, "path", {
+          stroke: "#4e687e",
+        });
+
+        // 明确设置背景为透明，以适应深色主题
+        if (svg.style) {
+          svg.style.background = "transparent";
+        }
+      }
+
+      // 应用浅色主题到饼图
+      function applyLightStyleToPieChart(svg) {
+        // 标题和文字
+        applyLightStyleToElements(svg, "text", {
+          fill: "#333",
+        });
+
+        // 饼图各部分的文字标签
+        applyLightStyleToElements(svg, "g.slice text", {
+          fill: "#333",
+        });
+
+        // 图例文字
+        applyLightStyleToElements(svg, "g.legend text", {
+          fill: "#333",
+        });
+
+        // 这里我们不改变饼图的各个部分颜色，因为它们通常使用特定颜色区分不同部分
+        // 但可以调整边框颜色
+        applyLightStyleToElements(svg, "path", {
+          stroke: "#666",
+        });
+
+        // 设置回默认背景
+        if (svg.style) {
+          svg.style.background = "";
+        }
+      }
+
+      // 应用深色通用样式
+      function applyDarkGenericStyles(svg) {
+        // 文本颜色
+        applyDarkStyleToElements(svg, "text, tspan", {
+          fill: "#f8f8f2",
+        });
+
+        // 各类容器
+        applyDarkStyleToElements(svg, "rect, circle, ellipse, polygon, path", {
+          fill: "#383a4a",
+          stroke: "#a9b8c6",
+        });
+
+        // 线条
+        applyDarkStyleToElements(svg, "line, polyline", {
+          stroke: "#a9b8c6",
+        });
+      }
+
+      // 应用浅色通用样式
+      function applyLightGenericStyles(svg) {
+        // 文本颜色
+        applyLightStyleToElements(svg, "text, tspan", {
+          fill: "#333",
+        });
+
+        // 各类容器
+        applyLightStyleToElements(svg, "rect, circle, ellipse, polygon, path", {
+          fill: "#ECECFF",
+          stroke: "#9370DB",
+        });
+
+        // 线条
+        applyLightStyleToElements(svg, "line, polyline", {
+          stroke: "#333",
+        });
+      }
+
+      // 为选定的元素应用深色主题样式
+      function applyDarkStyleToElements(svg, selector, styles) {
+        try {
+          const elements = svg.querySelectorAll(selector);
+          elements.forEach((el) => {
+            Object.keys(styles).forEach((prop) => {
+              if (el.style) {
+                el.style[prop] = styles[prop];
+              }
+              // 对于span、text等元素，也设置填充和文本颜色
+              if (prop === "fill" || prop === "color") {
+                if (el.tagName === "text" || el.tagName === "tspan") {
+                  el.setAttribute("fill", styles[prop]);
+                }
+              }
+            });
+          });
+        } catch (error) {
+          console.error("应用深色样式出错:", error, "选择器:", selector);
+        }
+      }
+
+      // 为选定的元素应用浅色主题样式
+      function applyLightStyleToElements(svg, selector, styles) {
+        try {
+          const elements = svg.querySelectorAll(selector);
+          elements.forEach((el) => {
+            Object.keys(styles).forEach((prop) => {
+              if (el.style) {
+                el.style[prop] = styles[prop];
+              }
+              // 对于span、text等元素，也设置填充和文本颜色
+              if (prop === "fill" || prop === "color") {
+                if (el.tagName === "text" || el.tagName === "tspan") {
+                  el.setAttribute("fill", styles[prop]);
+                }
+              }
+            });
+          });
+        } catch (error) {
+          console.error("应用浅色样式出错:", error, "选择器:", selector);
+        }
+      }
     </script>
   </head>
   <body>
-    <Header client:load />
-    <main class="main-content">
+    <Header />
+    <main>
       <slot />
     </main>
     {
@@ -65,27 +785,11 @@ const {
     }
 
     <style>
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-      }
-
-      .main-content {
-        min-height: calc(100vh - 140px); /* 减去Header和Footer的高度 */
-        overflow-y: auto;
-      }
-
-      /* 固定底部Footer */
       .fixed-footer {
         position: fixed;
         bottom: 0;
         left: 0;
-        width: 100%;
-        z-index: 100;
-        background-color: var(--background);
-        border-top: 1px solid var(--border);
+        right: 0;
       }
     </style>
   </body>
