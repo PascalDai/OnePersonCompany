@@ -13,6 +13,16 @@ export default defineConfig({
     collections: true,
   },
   markdown: {
-    remarkPlugins: [remarkMermaid],
+    remarkPlugins: [
+      [
+        remarkMermaid,
+        {
+          mermaidConfig: {
+            // 允许mermaid.js使用window.mermaidConfig
+            useConfigFromWindow: true,
+          },
+        },
+      ],
+    ],
   },
 });
