@@ -3,6 +3,18 @@ import { Button } from './button';
 
 type Theme = 'light' | 'dark' | 'system';
 
+// 添加全局window对象的扩展声明
+declare global {
+  interface Window {
+    toggleTheme?: () => void;
+    updateMermaidTheme?: () => void;
+    mermaidConfig?: {
+      theme: string;
+    };
+    mermaid?: any;
+  }
+}
+
 export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>('light');
   
@@ -11,41 +23,37 @@ export function ThemeToggle() {
     const savedTheme = localStorage.getItem('theme') as Theme | null;
     if (savedTheme) {
       setTheme(savedTheme);
-      applyTheme(savedTheme);
     } else {
       // 检查系统主题偏好
       if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
         setTheme('dark');
-        applyTheme('dark');
       }
     }
   }, []);
 
-  // 切换主题
-  const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    applyTheme(newTheme);
-  };
-
-  // 应用主题到HTML元素
-  const applyTheme = (newTheme: Theme) => {
-    const root = document.documentElement;
+  // 监听主题变化以更新显示
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'theme' && e.newValue) {
+        setTheme(e.newValue as Theme);
+      }
+    };
     
-    if (newTheme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-  };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
+  // 切换主题 - 通过设置data-theme-toggle属性，让主布局中的事件监听器处理
   return (
     <Button 
       variant="outline" 
       size="icon" 
-      onClick={toggleTheme}
+      onClick={() => {
+        // 简单的本地状态更新，实际的主题切换在BaseLayout中处理
+        setTheme(theme === 'light' ? 'dark' : 'light');
+      }}
       aria-label={`切换到${theme === 'light' ? '深色' : '浅色'}模式`}
+      data-theme-toggle="true"
     >
       {theme === 'light' ? (
         <svg 
@@ -57,6 +65,7 @@ export function ThemeToggle() {
           strokeLinecap="round" 
           strokeLinejoin="round" 
           className="h-[1.2rem] w-[1.2rem]"
+          data-theme-toggle="true"
         >
           <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
         </svg>
@@ -70,6 +79,7 @@ export function ThemeToggle() {
           strokeLinecap="round" 
           strokeLinejoin="round" 
           className="h-[1.2rem] w-[1.2rem]"
+          data-theme-toggle="true"
         >
           <circle cx="12" cy="12" r="4" />
           <path d="M12 2v2" />
